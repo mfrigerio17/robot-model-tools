@@ -1,0 +1,58 @@
+model: ur5
+
+mode: currentFrame
+
+poses:
+  - target: shoulder_pan
+    reference: base
+    steps:
+      - kind: trz
+        amount: 0.089159
+
+  - target: shoulder_lift
+    reference: shoulder
+    steps:
+      - kind: trx
+        amount: 0.13585
+      - kind: roty
+        amount:  pi/2
+      - kind: rotz
+        amount: pi
+
+  - target: elbow
+    reference: upperarm
+    steps:
+      - kind: trx
+        amount: 0.425
+      - kind: trz
+        amount:  -0.1197
+
+  - target: wr1
+    reference: forearm
+    steps:
+      - kind: trx
+        amount: 0.39225
+      - kind: trz
+        amount:  0.09315
+
+  - target: wr2
+    reference: wrist_1
+    steps:
+      - kind: trx
+        amount: 0.09475
+      - kind: roty
+        amount: pi/2
+      - kind: rotz
+        amount: pi
+
+  - target: wr3
+    reference: wrist_2
+    steps:
+      - kind: trx
+        amount: 0.0825
+      - kind: roty
+        amount: pi/2
+    # The origin of the frame is on the outermost surface of the disc (wrist3)
+    # Putting it on the contact surface with wrist2 would probably be more
+    # intuitive, but the robot docs do not mention the required measures...
+

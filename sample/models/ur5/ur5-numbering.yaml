@@ -1,0 +1,17 @@
+# Assign a progressive integer code to the links of the robot.
+
+# Tree-joints do not need a code, while loop joints do (if there are loops).
+# Assigning a code to a joint means implicitly choosing it as a loop joint.
+
+robot: ur5
+
+nums:
+  base:     0
+  shoulder: 1
+  upperarm: 2
+  forearm:  3
+  wrist_1:  4
+  wrist_2:  5
+  wrist_3:  6
+
+

@@ -1,0 +1,6 @@
+robot: ur5
+
+connectivity: "./ur5-connect.yaml"
+numbering:    "./ur5-numbering.yaml"
+geometry:     "./ur5-geometry.yaml"
+inertia:      "./ur5-inertia.yaml"

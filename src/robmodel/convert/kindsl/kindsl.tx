@@ -1,0 +1,128 @@
+
+Robot:
+    'Robot' name = ID '{'
+    base = RobotBase
+    links  += Link+
+    joints += Joint+
+    '}';
+
+AbstractLink:
+    Link | RobotBase;
+
+RobotBase:
+    FixedRobotBase | FloatingRobotBase;
+
+/* Any link might have an arbitrary number of frames *in addition*
+ * to the default one (the link frame, which is the one that coincides
+ * with the joint frame when the joint status is zero). These frames
+ * are expressed wrt such default one.
+ */
+
+FixedRobotBase:
+    'RobotBase' name=ID
+    '{'
+    (bodyInertia = InertiaProperties)? // if the base is fixed inertia does not matter, does it?
+    childrenList = ChildrenList
+    ('frames' ('{'frames += RefFrame+'}')+)?
+    '}';
+
+FloatingRobotBase:
+    'RobotBase' name=ID 'floating'
+   '{'
+    bodyInertia = InertiaProperties
+    childrenList = ChildrenList
+    ('frames' ('{'frames += RefFrame+'}')+)?
+    '}';
+
+Link:
+    'link' name=ID '{'
+    'id' '=' num = INT
+    bodyInertia = InertiaProperties
+    childrenList = ChildrenList
+    ('frames' ('{'frames += RefFrame+'}')+)?
+    '}';
+
+InertiaProperties:
+    ('inertia_params'|'inertia_properties') '{'
+        'mass' '=' mass=Expr
+        'CoM'  '=' com=Vector3
+        (('Ix' '=' ixx = Expr)
+         ('Iy' '=' iyy = Expr)
+         ('Iz' '=' izz = Expr)
+         ('Ixy''=' ixy = Expr)
+         ('Ixz''=' ixz = Expr)
+         ('Iyz''=' iyz = Expr))#
+        ('ref_frame' '=' frame=[RefFrame])?
+    '}'
+;
+
+Joint:
+    RevoluteJoint | PrismaticJoint;
+
+RevoluteJoint:
+    'r_joint' name=ID '{'
+    ('id' '=' num = INT)?
+    'ref_frame' '{'refFrame = RotoTrasl'}'
+    '}';
+
+PrismaticJoint:
+    'p_joint' name=ID '{'
+    ('id' '=' num = INT)?
+    'ref_frame' '{'refFrame = RotoTrasl'}'
+    '}';
+
+/* The explicit action {.} ensures object creation, in order to
+   have an empty list when there are no children (instead of having
+   no list at all)
+*/
+ChildrenList:
+    'children' '{'
+      (children += ChildSpec)*
+    '}';
+
+ChildSpec :
+    link=[Link] 'via' joint=[Joint];
+
+RotoTrasl:
+    'translation' '=' translation = Vector3
+    'rotation' '=' rotation = Vector3
+    ;
+
+/* A reference frame basically exists in terms of the roto-translation
+   with respect to some other frame. Plus, it has a name
+*/
+RefFrame:
+    name = ID '{'
+    transform = RotoTrasl
+    '}'
+;
+
+Vector3  :
+    '('x=Expr','y=Expr','z=Expr')';
+
+// Keep this order of the expressions, to avoid wrong matches.
+// For example, if we put 'PlainExpr' before 'DivExpr', it will match any
+// 'Value', but it will fail if it then encounters the "/" symbol.
+Expr : MultExpr | DivExpr | PlainExpr ;
+
+PlainExpr : minus?="-"? arg= Value;                 // e.g. "-PI"
+MultExpr  : mult=NUMBER "*" arg= Value;             // e.g. "5.0 * x"
+DivExpr   : minus?="-"? arg= Value "/" div=NUMBER ; // e.g. "PI/2.0"
+
+Value : Parameter | Constant ;
+
+Constant : FloatLiteral | PILiteral | ExplicitConstant | RefToConstant;
+
+ExplicitConstant: '<'name=ID '=' value=FloatLiteral '>' ;
+
+RefToConstant: '<' actual=[ExplicitConstant] '>';
+
+FloatLiteral: NUMBER ;
+PILiteral   : /[P|p][I|i]/;
+Parameter   : !PILiteral name=ID ('['defvalue=NUMBER']')?;
+
+Comment: /\/\/.*$/;
+
+
+
+

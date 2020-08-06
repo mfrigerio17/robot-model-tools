@@ -1,0 +1,58 @@
+name: ur5
+
+
+links:
+  - base
+  - shoulder
+  - upperarm
+  - forearm
+  - wrist_1
+  - wrist_2
+  - wrist_3
+
+joints:
+  - name: shoulder_pan
+    kind: revolute
+
+  - name: shoulder_lift
+    kind: revolute
+
+  - name: elbow
+    kind: revolute
+
+  - name: wr1
+    kind: revolute
+
+  - name: wr2
+    kind: revolute
+
+  - name: wr3
+    kind: revolute
+
+
+pairs:
+  - joint: shoulder_pan
+    link1: shoulder
+    link2: base
+
+  - joint: shoulder_lift
+    link1: shoulder
+    link2: upperarm
+
+  - joint: elbow
+    link1: upperarm
+    link2: forearm
+
+  - joint: wr1
+    link1: forearm
+    link2: wrist_1
+
+  - joint: wr2
+    link1: wrist_1
+    link2: wrist_2
+
+  - joint: wr3
+    link1: wrist_2
+    link2: wrist_3
+
+
