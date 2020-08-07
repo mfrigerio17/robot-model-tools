@@ -20,6 +20,21 @@ cd src/
 ./runner.py --help
 ```
 
+# Code documentation
+
+More information about the packages and the modules of this project is available
+in the source code.
+
+You can generate e.g. html documentation using
+[pdoc3](https://pdoc3.github.io/pdoc/) (requires Python 3.5+).
+For example:
+
+```sh
+pip install pdoc3  # don't forget the '3'
+cd src/
+pdoc --html --config show_source_code=False -o /tmp/docs/rmt rmt/ robmodel/
+```
+
 # Installation
 Please install from source code, using `pip`:
 
