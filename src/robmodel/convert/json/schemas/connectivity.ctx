@@ -1,0 +1,16 @@
+{
+  "@context": {
+    "ROB" : "https://gitlab.kuleuven.be/rob/",
+
+    "name" : "ROB:robot",
+    "links"  : "ROB:connectivity/links",
+    "joints" : "ROB:connectivity/joints",
+    "pairs"  : "ROB:connectivity/kpairs",
+
+    "kind" : "ROB:joint_type",
+
+    "joint" : "ROB:kinematic_pair/joint",
+    "link1" : "ROB:kinematic_pair/link1",
+    "link2" : "ROB:kinematic_pair/link2"
+  }
+}

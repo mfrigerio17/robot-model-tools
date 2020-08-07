@@ -1,0 +1,52 @@
+{
+  "@context": {
+    "ROB" : "https://gitlab.kuleuven.be/rob/",
+    "link" : "ROB:rigid_body",
+    "kind" : "ROB:joint_type",
+    "kpair": "ROB:kinematic_pair",
+
+    "bodies"  : "ROB:connectivity/links",
+    "joints" : "ROB:connectivity/joints",
+    "pairs"  : "ROB:connectivity/kpairs",
+    "robot" : {
+        "@id" : "ROB:robot",
+        "@type" : "@id"
+    },
+
+    "joint" : "ROB:kinematic_pair/joint",
+    "link1" : "ROB:kinematic_pair/link1",
+    "link2" : "ROB:kinematic_pair/link2"
+  },
+
+  "@type": "mechanism_connectivity",
+
+  "robot" : "ROB:robot_models:UR5",
+
+  "bodies" : [
+    { "@type" : "link", "@id" : "base"},
+    { "@type" : "link", "@id" : "shoulder"},
+    { "@type" : "link", "@id" : "upperarm"},
+    { "@type" : "link", "@id" : "forearm"},
+    { "@type" : "link", "@id" : "wrist_1"},
+    { "@type" : "link", "@id" : "wrist_2"},
+    { "@type" : "link", "@id" : "wrist_3"}
+  ],
+  "joints" : [
+    { "@id" : "shoulder_pan",  "kind" : "revolute" },
+    { "@id" : "shoulder_lift", "kind" : "revolute" },
+    { "@id" : "elbow",         "kind" : "revolute" },
+    { "@id" : "wr1",           "kind" : "revolute" },
+    { "@id" : "wr2",           "kind" : "revolute" },
+    { "@id" : "wr3",           "kind" : "revolute" }
+  ],
+
+  "pairs" : [
+    { "@type" : "kpair", "joint" : "shoulder_pan" , "link1": "shoulder", "link2": "base" },
+    { "@type" : "kpair", "joint" : "shoulder_lift", "link1": "shoulder", "link2": "upperarm" },
+    { "@type" : "kpair", "joint" : "elbow"        , "link1": "upperarm", "link2": "forearm" },
+    { "@type" : "kpair", "joint" : "wr1"          , "link1": "forearm" , "link2": "wrist_1" },
+    { "@type" : "kpair", "joint" : "wr2"          , "link1": "wrist_1" , "link2": "wrist_2" },
+    { "@type" : "kpair", "joint" : "wr3"          , "link1": "wrist_2" , "link2": "wrist_3" }
+  ]
+}
+
