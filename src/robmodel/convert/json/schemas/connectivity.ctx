@@ -1,7 +1,7 @@
 {
   "@context": {
     "ROB" : "https://gitlab.kuleuven.be/rob/",
-
+    "connectivity" : "ROB:mechanism_connectivity",
     "name" : "ROB:robot",
     "links"  : "ROB:connectivity/links",
     "joints" : "ROB:connectivity/joints",

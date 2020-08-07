@@ -1,6 +1,7 @@
 {
   "@context": {
     "ROB" : "https://gitlab.kuleuven.be/rob/",
+    "connectivity" : "ROB:mechanism_connectivity",
     "link" : "ROB:rigid_body",
     "kind" : "ROB:joint_type",
     "kpair": "ROB:kinematic_pair",
@@ -18,7 +19,7 @@
     "link2" : "ROB:kinematic_pair/link2"
   },
 
-  "@type": "mechanism_connectivity",
+  "@type": "connectivity",
 
   "robot" : "ROB:robot_models:UR5",
 
