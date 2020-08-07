@@ -1,0 +1,14 @@
+{
+  "@context": {
+    "ROB" : "https://gitlab.kuleuven.be/rob/",
+    "numbering" : "ROB:mechanism_numbering_scheme",
+    "scheme" : "ROB:mechanism_numbering_scheme/scheme",
+    "code"   : "ROB:numbering/code",
+    "link"   : "ROB:rigid_body",
+
+    "robot" : {
+        "@id" : "ROB:robot",
+        "@type" : "@id"
+    }
+  }
+}

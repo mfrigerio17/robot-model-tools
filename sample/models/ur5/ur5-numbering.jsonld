@@ -1,0 +1,28 @@
+{
+  "@context": {
+    "ROB" : "https://gitlab.kuleuven.be/rob/",
+    "numbering" : "ROB:mechanism_numbering_scheme",
+    "scheme" : "ROB:mechanism_numbering_scheme/scheme",
+    "code"   : "ROB:numbering/code",
+    "link"   : "ROB:rigid_body",
+
+    "robot" : {
+        "@id" : "ROB:robot",
+        "@type" : "@id"
+    }
+  },
+
+  "@type": "numbering",
+
+  "robot" : "ROB:robot_models:UR5",
+
+  "scheme" : [
+    { "link" : "base",     "code" : 0},
+    { "link" : "shoulder", "code" : 1},
+    { "link" : "upperarm", "code" : 2},
+    { "link" : "forearm",  "code" : 3},
+    { "link" : "wrist_1",  "code" : 4},
+    { "link" : "wrist_2",  "code" : 5},
+    { "link" : "wrist_3",  "code" : 6}
+  ]
+}

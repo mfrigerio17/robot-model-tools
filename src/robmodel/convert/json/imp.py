@@ -4,6 +4,7 @@ import robmodel.convert.urdf.exp as urdfout
 import robmodel.convert.json as jsonconvert
 
 import robmodel.connectivity
+import robmodel.ordering
 
 import json
 import jsonschema
@@ -23,6 +24,7 @@ def _load_schema(filename):
 
 schema_connectivity = _load_schema('connectivity.json')
 ctx_connectivity = _load_schema('connectivity.ctx')
+ctx_numbering    = _load_schema('numbering.ctx')
 
 
 def pp(raw) :
@@ -93,13 +95,40 @@ def connectivity(istream):
     return robmodel.connectivity.fromDict(data)
 
 
+def numbering(connectivity_istream, numbering_istream):
+    cmodel = connectivity(connectivity_istream)
+
+    doc, ctx, compact = ldload(numbering_istream)
+    #TODO validate against a schema
+
+    compact = jsonld.compact( doc, ctx_numbering )
+    #pp(compact)
+
+    # Now construct a dictionary, with the same data, in the format required by
+    # the `robmodel.ordering` module
+    nums = {el['link'] : el['code'] for el in compact['scheme'] }
+    data = {
+        'robot' : compact['robot'],
+        'nums' : nums
+    }
+    #print(data)
+    nmodel = robmodel.ordering.Robot(cmodel, data)
+    return nmodel
 
 def main():
-    modelf  = 'sample/models/ur5/connectivity.jsonld'
-    istream = open(modelf)
-    connectivity_model = connectivity(istream)
-    print(connectivity_model)
+    rootlog = logging.getLogger()
+    rootlog.setLevel(logging.INFO)
+    modelc  = 'sample/models/ur5/connectivity.jsonld'
+    modeln  = 'sample/models/ur5/ur5-numbering.jsonld'
+    istreamc = open(modelc)
+    istreamn = open(modeln)
+    #connectivity_model = connectivity(istream)
+    #print(connectivity_model)
+    robot = numbering(istreamc, istreamn)
+    istreamc.close()
+    istreamn.close()
 
+    print(robot)
     # I cannot yet convert to URDF as I still need a numbering scheme for the
     # connectivity model, to establish the parentship relations which are
     # required for a bare minimum URDF
