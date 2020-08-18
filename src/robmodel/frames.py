@@ -86,7 +86,7 @@ class RobotDefaultFrames():
 
     def joint(self, frame1, frame2=None):
         if frame2 is None:
-            if frameRole(frame1) == FrameRole.joint :
+            if self.frameRole(frame1) == FrameRole.joint :
                 return self.graph.nodes[frame1]['joint']
         else :
             ed = self._edge(frame1, frame2)
@@ -94,7 +94,7 @@ class RobotDefaultFrames():
                 return ed['joint']
         return None
 
-    def frameRole(frame):
+    def frameRole(self, frame):
         '''
         The `FrameRole` attribute of the given frame.
 
