@@ -14,13 +14,12 @@ struct PckSetTransform
 {
     PckSetTransform();
 
-    void pack_payload(const std::string& path, const double* matrix_data);
+    const PackedDataBuffer&
+    pack_payload(const std::string& path, const double* matrix_data);
 
-    const PackedDataBuffer& get_message() const { return full; }
-
-    PackedDataBuffer full;
-    PackedDataBuffer path;
-    PackedDataBuffer matrix;
+    PackedDataBuffer buf_full;
+    TrickyBuffer     buf_path;
+    TrickyBuffer     buf_matrix;
 
 private:
     size_t packed_header_size;

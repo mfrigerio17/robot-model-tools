@@ -15,6 +15,7 @@ set(SRC_PATH src)
 set(SOURCES
     ${SRC_PATH}/commands.cpp
     ${SRC_PATH}/zmqclient.cpp
+    ${SRC_PATH}/buffer.cpp
 )
 
 include_directories(${INC_PATH})
