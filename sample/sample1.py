@@ -31,7 +31,7 @@ def base_H_ee(geometryModel, eelinkname):
     given in the argument to the robot base, for the default configuration of
     the robot.'''
 
-    robot  = geometryModel.treeModel
+    robot  = geometryModel.connectivityModel
     tree   = robmodel.treeutils.TreeUtils( robot )
     frames = geometryModel.framesModel
 
