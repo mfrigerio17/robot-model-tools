@@ -51,17 +51,26 @@ class MeshCatScene:
                          the homogeneous coordinate transforms mapping mesh
                          coordinates to robot-model-link coordinates
         '''
+
         def addToScene(link, parent, meshCatParent):
             if parent is None : # the base link of the robot; the meshcat parent is thus the world
                 mcatLink = meshCatParent[ link.name ]
             else :
+                # The local visualization tree that we have to construct:
+                # parent \
+                #        |- joint \
+                #                 |- joint frame
+                #                 |- link \
+                #                         |- link frame
+                #                         |- mesh
                 joint     = self.rob.linkPairToJoint(link, parent)
                 mcatJoint = meshCatParent[ joint.name ]
                 mcatLink  = mcatJoint[ link.name ]
                 jframe    = mcatJoint["jframe"]
                 jframe.window.send( CustomCommand(jframe.path) ) # slight hack, since there is not really a proper message in meshcat for frames
 
-                # Geometrical data
+                # Geometrical data, ie the fixed pose of the joint frame
+                # relative to the predecessor link frame
                 pose  = self.geom.byJoint[ joint ]  # joint_wrt_predecessor
                 parent_CT_joint = frommotions.toCoordinateTransform(pose)
                 parent_H_joint  = mxrepr.hCoordinatesNumeric(parent_CT_joint)
@@ -82,18 +91,20 @@ class MeshCatScene:
             if link.name in meshesPath :
                 mesh = mcatLink["mesh"]
                 mesh.set_object(meshcatg.StlMeshGeometry.from_file( meshesPath[link.name] ))
-                # tmp hack, keep the following after the mesh
-                frame = mcatLink["lframe"]
-                frame.window.send( CustomCommand(frame.path) ) # slight hack, since there is not really a proper message in meshcat for frames
 
                 link_H_stl = link_H_mesh.get(link.name, np.identity(4))
                 mesh.set_transform( link_H_stl )
             else :
                 logger.warning("Could not find mesh for link '{0}'".format(link.name))
 
+            frame = mcatLink["lframe"]
+            frame.window.send( CustomCommand(frame.path) ) # slight hack, since there is not really a proper message in meshcat for frames
+
+
             for child in self.tree.children( link ) :
                 addToScene(child, link, mcatLink)
 
+        # start the recursive calls:
         addToScene(self.rob.base, None, self.vis)
 
     def setJointStatus(self, q):
