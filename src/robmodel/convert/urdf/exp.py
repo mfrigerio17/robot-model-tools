@@ -13,20 +13,26 @@ tpl = Template('''
 %endfor
 
 %for joint in robot.joints.values():
-    <joint name="${joint.name}" type="${joint.kind.name}">
+    <joint name="${joint.name}" type="${jointKind(joint)}">
 %if geometry is not None :
     <% x,y,z,rx,ry,rz = jointParams(geometry, joint) %>
         <origin xyz="${tostr(x)} ${tostr(y)} ${tostr(z)}" rpy="${tostr(rx)} ${tostr(ry)} ${tostr(rz)}"/>
 %endif
         <parent link="${robot.predecessor(joint).name}"/>
         <child  link="${robot.successor  (joint).name}"/>
-        <axis xyz="0 0 1"/>
+        <% x,y,z = geometry.jointAxes[joint.name] %>
+        <axis xyz="${tostr(x)} ${tostr(y)} ${tostr(z)}"/>
     </joint>
 
 % endfor
 </robot>
 '''
 )
+
+def jointKind(joint):
+    if isinstance(joint.kind, str) :
+        return joint.kind
+    return joint.kind.name
 
 def jointOrigin(geometryModel, joint):
     poseSpec = geometryModel.byJoint[ joint ]
@@ -53,5 +59,6 @@ def geometry(geometryModel):
         robot=geometryModel.connectivityModel,
         geometry=geometryModel,
         jointParams=jointOrigin,
+        jointKind = jointKind,
         tostr=lambda num: formatter.float2str(num)
     )

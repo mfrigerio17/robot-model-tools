@@ -147,6 +147,16 @@ def toValidID( name ) :
 
 
 def linkFrameToJointFrameInURDF(urdfjoint):
+    '''
+    Return the data about the location of the joint frame relative to the
+    predecessor link frame.
+
+    This function returns three values:
+    - the `xyz` attribute as found in the source URDF
+    - the `rpy` attribute as found in the source URDF
+    - the rigid motion model representing the relative pose (this is the motion
+      that the link frame should undergo to coincide with the joint frame)
+    '''
     xyz = urdfjoint.frame['xyz']
     rpy = urdfjoint.frame['rpy']
 
@@ -168,7 +178,6 @@ def convert( urdf ) :
     pairs = []
     children = {}
     orphans = []
-    urdfFrames = []
 
     for urdfname in urdf.links.keys() :
         name = toValidID( urdfname )
@@ -177,11 +186,6 @@ def convert( urdf ) :
         children[name] = []
         if urdf.links[urdfname].parent == None :
             orphans.append(link)
-
-        #link_R_urdflink[name] = np.identity(3) # initial value
-
-        fr = primitives.Frame("urdf_" + link.name)
-        urdfFrames.append( primitives.Attachment(fr, link) )
 
     if len(orphans)==0 :
         logger.fatal("Could not find any root link (i.e. a link without parent).")
@@ -208,8 +212,6 @@ def convert( urdf ) :
         joints[name] = joint
         pairs.append( robmodel.connectivity.KPair(joint, parent, child) )
 
-        fr = primitives.Frame("urdf_" + joint.name)
-        urdfFrames.append( primitives.Attachment(fr, parent) )
 
     # CONNECTIVITY MODEL
     connectivityModel = robmodel.connectivity.Robot(
@@ -233,69 +235,35 @@ def convert( urdf ) :
     orderedModel = robmodel.ordering.Robot(connectivityModel, ordering)
 
     # FRAMES
-    framesModel = robmodel.frames.RobotDefaultFrames(orderedModel, urdfFrames)
+    # The URDF does not have explicit frames, so there are no more frames than
+    # joints and links; thus the second argument is always the empty list
+    framesModel = robmodel.frames.RobotDefaultFrames(orderedModel, [])
 
     # GEOMETRY MEASUREMENTS
-    # For each link, the motion to go from the link frame in our convention to
-    # the URDF frame of the same link. There might be differences because our
-    # model still requires the Z axis of the link frame to be aligned with the
-    # joint axis. Initialize with empty list.
-    M_link_urdflink = {}
-    for link in links.values() :
-        M_link_urdflink[link.name] = MotionSequence([], MotionSequence.Mode.currentFrame)
-
     poses = []
+    axes = {}
     for joint in urdf.joints.values() :
         # Get the current joint and link (predecessor)
         myjoint = joints[ toValidID( joint.name ) ]
         mylink  = orderedModel.predecessor(myjoint)
-        motion_link_to_urdflink = M_link_urdflink[mylink.name]
 
         logger.debug("Processing joint * {0} * and predecessor link * {1} *".format(myjoint.name, mylink.name) )
-        logger.debug("Motion from link frame to URDF link frame for * {0} *: {1}".format(mylink.name, motion_link_to_urdflink))
 
         # The relative pose of the URDF joint frame relative to the URDF link frame
-        xyz, rpy, motion_urdflink_to_urdfjoint = linkFrameToJointFrameInURDF(joint)
-
-        # This is the motion to go from our link frame to the URDF joint frame
-        motion_link_to_urdfjoint = MotionPath([motion_link_to_urdflink, motion_urdflink_to_urdfjoint])
+        xyz, rpy, motion_link_to_joint = linkFrameToJointFrameInURDF(joint)
 
         jaxis = np.round( np.array(joint.frame['axis']), 5)
 
         logger.debug("Joint axis in URDF coordinates    : {0}".format(jaxis) )
         logger.debug("URDF joint xyz and rpy attributes : {0}   {1}".format(xyz, rpy) )
 
-        # If the joint axis is not the Z axis
-        if not np.equal(jaxis, np.array((0.,0.,1.))).all() and joint.type != "fixed" :
-            logger.info("The axis of joint '{0}' is not the Z axis".format(joint.name) )
-
-            x,y,z = jaxis[0], jaxis[1], jaxis[2]
-            rz = - math.atan2(x,y)
-            rx = - math.atan2( math.sqrt(x*x + y*y), z )
-            rotations = []
-            if round(rz,5) != 0.0 :
-                rotations.append( motions.rotation(motions.Axis.Z, rz) )
-            if round(rx,5) != 0.0 :
-                rotations.append( motions.rotation(motions.Axis.X, rx) )
-
-            rotation_urdfjoint_to_alignZ = MotionSequence(rotations, MotionSequence.Mode.currentFrame)
-
-            logger.debug("Rotations of the link frame required to align the Z axis with the joint axis: {0}".format( rotations ))
-
-            motion_link_to_joint = MotionPath([motion_link_to_urdfjoint, rotation_urdfjoint_to_alignZ])
-
-            successor = orderedModel.successor(myjoint)
-            M_link_urdflink[successor.name] = motions.reverse(rotation_urdfjoint_to_alignZ)
-
-        else :
-            motion_link_to_joint = motion_link_to_urdfjoint
-
         frame_joint = framesModel.framesByName[ myjoint.name ]
         frame_link  = framesModel.framesByName[ mylink.name  ]
         pose = primitives.Pose(target=frame_joint, reference=frame_link)
         poses.append( PoseSpec(pose, motion_link_to_joint) )
+        axes[myjoint.name] = joint.frame['axis']
 
     posesModel = motions.PosesSpec(robotName, poses)
 
-    geometryModel = robmodel.geometry.Geometry(orderedModel, framesModel, posesModel)
+    geometryModel = robmodel.geometry.Geometry(orderedModel, framesModel, posesModel, axes)
     return connectivityModel, orderedModel, framesModel, geometryModel
