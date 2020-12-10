@@ -26,9 +26,10 @@ def getmodels(filepath, paramsfilepath=None, floatLiteralsAsConstants=False):
             urdfwrap = urdfin.URDFWrapper(urdffile)
             connectivity, ordering, frames, geometry = urdfin.convert(urdfwrap)
         except Exception as e:
-            log.error("Failed to load URDF model")
-        finally:
+            log.error("Failed to load URDF model: {0}".format(e))
             urdffile.close()
+            exit(-1)
+        urdffile.close()
 
     elif ext == '.kindsl' :
         log.debug("KinDSL format detected for file " + filepath)
