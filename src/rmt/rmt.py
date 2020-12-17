@@ -90,7 +90,7 @@ def getmodels(filepath, paramsfilepath=None, floatLiteralsAsConstants=False):
 
 def defpose(args):
     robot,frames,geometry = getmodels(args.robot, args.params)[1:4]
-    jointPoses = robmodel.jposes.JointPoses(robot, frames)
+    jointPoses = robmodel.jposes.JointPoses(robot, frames, geometry.jointAxes)
     kin = rmt.kinematics.RobotKinematics(geometry, jointPoses)
     H = rmt.kinematics.base_H_ee(kin, args.frame)
     if H is None :
@@ -123,7 +123,7 @@ def writeMotDSLFile(args):
             log.warning("Could not open file '{0}'".format(args.outmotdsl))
 
     robot,frames,geometry = getmodels(args.robot, args.params)[1:4]
-    jointPoses = robmodel.jposes.JointPoses(robot, frames)
+    jointPoses = robmodel.jposes.JointPoses(robot, frames, geometry.jointAxes)
     robotKin   = rmt.kinematics.RobotKinematics(geometry, jointPoses)
     rmt.kinematics.serializeToMotionDSLModel(robotKin, ostream)
 
