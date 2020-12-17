@@ -10,6 +10,7 @@ import logging, time, math
 import meshcat
 import meshcat.geometry as meshcatg
 
+from kgprim.core import Pose
 import kgprim.ct.frommotions as frommotions
 import kgprim.ct.repr.mxrepr as mxrepr
 
@@ -20,13 +21,15 @@ import robmodel.treeutils as treeu
 logger = logging.getLogger(__name__)
 
 class CustomCommand:
-    def __init__(self, path):
+    def __init__(self, path, subcmd=""):
         self.path = path
+        self.subcmd = subcmd
     def lower(self):
         return {
             u"type": u"custom",
             u"path": self.path.lower(),
-            u"data": u"aaa"
+            u"data": u"aaa",
+        u"subtype" : self.subcmd.lower()
         }
 
 class MeshCatScene:
@@ -39,6 +42,7 @@ class MeshCatScene:
 
         self.jointTransforms = {}
         self.linkByJoint = {}
+        self.linkByName  = {}
 
     def load(self, meshesPath, link_H_mesh={}):
         '''
@@ -66,8 +70,8 @@ class MeshCatScene:
                 joint     = self.rob.linkPairToJoint(link, parent)
                 mcatJoint = meshCatParent[ joint.name ]
                 mcatLink  = mcatJoint[ link.name ]
-                jframe    = mcatJoint["jframe"]
-                jframe.window.send( CustomCommand(jframe.path) ) # slight hack, since there is not really a proper message in meshcat for frames
+                jframe    = mcatJoint[joint.name + "_frame"]
+                jframe.window.send( CustomCommand(jframe.path, "frame") )
 
                 # Geometrical data, ie the fixed pose of the joint frame
                 # relative to the predecessor link frame
@@ -87,6 +91,7 @@ class MeshCatScene:
                 # transform of a bloody fixed joint, so we do not have to do anything
 
                 self.linkByJoint[joint.name] = mcatLink
+            self.linkByName[link.name] = mcatLink
 
             if link.name in meshesPath :
                 mesh = mcatLink["mesh"]
@@ -94,18 +99,40 @@ class MeshCatScene:
 
                 link_H_stl = link_H_mesh.get(link.name, np.identity(4))
                 mesh.set_transform( link_H_stl )
+                mcatLink.window.send( CustomCommand(mcatLink.path, "link-with-mesh") )
             else :
                 logger.warning("Could not find mesh for link '{0}'".format(link.name))
 
-            frame = mcatLink["lframe"]
-            frame.window.send( CustomCommand(frame.path) ) # slight hack, since there is not really a proper message in meshcat for frames
-
+            frame = mcatLink[link.name + "_frame"]
+            frame.window.send( CustomCommand(frame.path, "frame") )
 
             for child in self.tree.children( link ) :
                 addToScene(child, link, mcatLink)
 
-        # start the recursive calls:
+        # start the recursive calls to add the links:
         addToScene(self.rob.base, None, self.vis)
+
+        # add the additional user frames attached to the links
+        frames = self.geom.framesModel
+        for uFrame in frames.userAttachedFrames :
+            userFrame = frames.framesByName[ uFrame.name ]
+            linkFrame = frames.framesByName[ uFrame.body.name ]
+            pose = Pose(target=userFrame, reference=linkFrame)
+            if pose in self.geom.byPose :
+                poseSpec = self.geom.byPose[ pose ]
+                mcatLink = self.linkByName[uFrame.body.name]
+                # the frame is a new child of the link, in the scene tree
+                frame = mcatLink[userFrame.name]
+                # send the command to visualize a Cartesian frame
+                cmd = CustomCommand(frame.path, "frame")
+                frame.window.send( cmd )
+                # set the transform, to orient the frame relative to the link
+                link_CT_frame = frommotions.toCoordinateTransform(poseSpec)
+                link_H_frame  = mxrepr.hCoordinatesNumeric(link_CT_frame)
+                frame.set_transform( link_H_frame )
+            else :
+                logger.warning("Could not find the motion model for pose '{0}'".format(pose))
+
 
     def setJointStatus(self, q):
         for i in range(0, len(q)) :
