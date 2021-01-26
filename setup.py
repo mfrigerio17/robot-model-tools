@@ -60,7 +60,7 @@ setuptools.setup(
     ],
 
     entry_points = {
-        "console_scripts": ["rmt = rmt.rmt:main" ]
+        "console_scripts": ["rmt = rmt.rmt:main", "rmtv = rmt.viewer.main:main" ]
     },
 
     cmdclass={
