@@ -177,7 +177,7 @@ def start(robotGeometryModel, meshesPaths, meshesPoses):
                 meshes_H[ linkFrame.name ] = mxrepr.hCoordinatesNumeric(link_CT_stl)
 
     tree = treeu.TreeUtils(robot)
-    tr   = robmodel.jposes.JointPoses(robot, robotGeometryModel.framesModel)
+    tr   = robmodel.jposes.JointPoses(robot, frames, robotGeometryModel.jointAxes)
 
     def init():
         meshcatv = meshcat.Visualizer()
