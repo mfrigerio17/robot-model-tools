@@ -5,7 +5,7 @@ Created on Sep 13, 2019
 '''
 import numpy as np
 import sympy
-import logging, time, math
+import logging, time, math, itertools
 
 import meshcat
 import meshcat.geometry as meshcatg
@@ -146,14 +146,15 @@ class MeshCatScene:
 
 def trivialJointMotion(bridgeToScene):
     t = 0
-    #q = sympy.Symbol('q')
+    length = len(bridgeToScene.rob.joints)
     uin = '.'
     while uin != 'q':
         time.sleep(0.2)
 #        uin = input('enter q to terminate, r to reload: ')
         t = t + 0.2
         q = 0.5 * math.sin(t)
-        bridgeToScene.setJointStatus( [q,q,q] )
+        qstate = list(itertools.repeat(q, length))
+        bridgeToScene.setJointStatus( qstate )
 
 
 def start(robotGeometryModel, meshesPaths, meshesPoses):
