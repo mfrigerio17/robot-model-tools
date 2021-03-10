@@ -60,8 +60,6 @@ import networkx as nx
 # - each link must have a frame for each joint
 # - frames on different links, which however refer to the same joint, must be
 #   recognizable. These are the frames that coincide at the zero joint status
-# - need to decide whether to impose that the joint axis is the z axis of the
-#   joint frame
 
 
 
