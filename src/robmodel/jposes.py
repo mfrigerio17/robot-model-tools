@@ -3,6 +3,7 @@ The joint poses between joint frames and successor frames in a robot model
 '''
 
 from enum import Enum
+import math
 
 from kgprim.core import Pose
 import kgprim.motions as motions
@@ -47,12 +48,9 @@ class JointPoses:
     a `numeric_argument.Variable`. The variables are conventionally called
     `q<i>`, with `<i>` ranging from 0 to the number of degrees of freedom minus
     one.
-
-    TODO: at the moment, we assume the joint axis coincides with the Z axis of
-    the joint frame
     '''
 
-    def __init__(self, robot, frames):
+    def __init__(self, robot, frames, axes):
         self.poseSpecByJoint = {}
         self.poseSpecByPose  = {}
         self.jointToSymVar = {}
@@ -64,22 +62,56 @@ class JointPoses:
             succFrame = frames.linkFrames [ succ ]
             jointFrame= frames.jointFrames[ joint ]
             pose      = Pose(target=succFrame, reference=jointFrame)
+            axis      = axes[joint.name]
             # So, we have the pose of the link (successor) frame relative to the joint frame
 
             symname = "q{0}".format(i-1)
             qvar = numeric_argument.Variable(name=symname)
-            expr = numeric_argument.Expression(argument=qvar)
-            motionStep = None
-            if joint.kind == JointKind.prismatic :
-                motionStep = motions.translation(motions.Axis.Z, expr)
-            elif joint.kind == JointKind.revolute :
-                motionStep = motions.rotation(motions.Axis.Z, expr)
-            elif joint.kind == 'fixed' :
-                motionStep = motions.translation(motions.Axis.Z, 0.0)
-            else:
-                raise RuntimeError("Unknown joint type '{0}'".format(joint.kind))
+            qexpr= numeric_argument.Expression(argument=qvar)
+            motionSteps = None
+            motionF    = None
+            if joint.kind == 'fixed' :
+                # aribtrary motion step of 0 value
+                motionSteps = [motions.translation(motions.Axis.Z, 0.0)]
+            else :
+                if joint.kind == JointKind.prismatic :
+                    motionF = lambda axis,amount : motions.translation(axis, amount)
+                elif joint.kind == JointKind.revolute :
+                    motionF = lambda axis,amount : motions.rotation(axis, amount)
+                else:
+                    raise RuntimeError("Unknown joint type '{0}'".format(joint.kind))
+                if axis == (1,0,0) :
+                    motionSteps = [motionF( motions.Axis.X, qexpr )]
+                elif axis == (-1,0,0) :
+                    motionSteps = [motionF( motions.Axis.X, -qexpr )]
+                elif axis == (0,1,0) :
+                    motionSteps = [motionF( motions.Axis.Y, qexpr )]
+                elif axis == (0,-1,0) :
+                    motionSteps = [motionF( motions.Axis.Y, -qexpr )]
+                elif axis == (0,0,1) :
+                    motionSteps = [motionF( motions.Axis.Z, qexpr )]
+                elif axis == (0,0,-1) :
+                    motionSteps = [motionF( motions.Axis.Z, -qexpr )]
+                else:
+                    jointMotion = motionF( motions.Axis.Z, qexpr )
+                    # The joint axis is an arbitrary versor...
+                    # Thus, we first rotate the frame so that our Z axis aligns
+                    # with the joint axis, and only then we add the motion of
+                    # the joint itself.
+                    x,y,z = axis[:]
+                    if y != 0.0 :
+                        rz = - math.tan(x/y)
+                        rx = - (math.pi/2 - math.tan( z / math.sqrt(x*x + y*y) ) )
 
-            poseSpec = PoseSpec(pose=pose, motion=motions.MotionSequence(steps=[motionStep], mode=motions.MotionSequence.Mode.currentFrame))
+                        step1 = motions.rotation(motions.Axis.Z, rz)
+                        step2 = motions.rotation(motions.Axis.X, rx)
+                        motionSteps = [step1, step2, jointMotion, -step2, -step1 ]
+                    else :
+                        ry = math.tan(x/z) # if z was also 0, another branch above would be executed
+                        step1 = motions.rotation(motions.Axis.Y, ry)
+                        motionSteps = [ step1, jointMotion, -step1 ]
+
+            poseSpec = PoseSpec(pose=pose, motion=motions.MotionSequence(steps=motionSteps, mode=motions.MotionSequence.Mode.currentFrame))
             self.poseSpecByJoint[joint] = poseSpec
             self.poseSpecByPose [pose ] = poseSpec
             self.jointToSymVar[joint] = qvar

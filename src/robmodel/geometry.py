@@ -29,7 +29,7 @@ class Geometry:
     geometric data.
     '''
 
-    def __init__(self, connectModel, framesModel, posesModel):
+    def __init__(self, connectModel, framesModel, posesModel, jointAxes=None):
         '''
         Construct the geometry model of a mechanism by composing the arguments.
 
@@ -38,6 +38,7 @@ class Geometry:
         - `connectModel` the connectivity model of the mechanism, with ordering
         - `framesModel` the set of the Cartesian frames attached to the mechanism
         - `posesModel` the constant, relative poses between the frames
+        - `jointAxes` the versors of the joint axes, in joint frame coordinates
 
         The third argument is the actual geometric data; this constructor makes
         sure that the three arguments are consistent and therefore can be
@@ -49,6 +50,12 @@ class Geometry:
         `posesModel` might be simple placeholders. The name of the frame is used
         to establish the correspondence between a placeholder frame and a
         robot-attached frame.
+
+        The `jointAxes` argument defaults to `None`. In that case it is assumed
+        that the axis of any joint is the Z axis of its frame. Otherwise, the
+        argument should be a dictionary indexed by joint name, with values being
+        3-value tuples. Any tuple must represent the 3D joint axis versor, using
+        coordinates in the joint frame.
         '''
 
         if not isinstance(connectModel, ordering.Robot) :
@@ -110,6 +117,16 @@ class Geometry:
         # PosesSpec model given to the constructor might have poses that refer
         # to the un-attached frames.
 
+        if jointAxes == None :
+            jointAxes = {}
+            for joint in connectModel.joints.values() :
+                jointAxes[joint.name] = (0.0,0.0,1.0) # default is Z axis
+        else :
+            if jointAxes.keys() != connectModel.joints.keys():
+                logger.warning("The names in the joint-axes dictionary do not " +
+                               "match the names in the connectivity model")
+        self.axes = jointAxes
+
     @property
     def robotName(self):
         return self.ordering.name
@@ -122,4 +139,7 @@ class Geometry:
     @property
     def posesModel(self):
         return self.poses
+    @property
+    def jointAxes(self):
+        return self.axes
 

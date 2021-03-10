@@ -21,7 +21,7 @@ class RobotKinematics:
     def __init__(self, geometry, jointPoses):
         self.robotGeometry = geometry
         self.jointPoses = jointPoses
-        self.baseFrame = geometry.framesModel.linkFrames[ geometry.treeModel.base ]
+        self.baseFrame = geometry.framesModel.linkFrames[ geometry.connectivityModel.base ]
 
         allPoses = geometry.posesModel.mergeModel( jointPoses.jointPosesModel )
 
@@ -31,7 +31,7 @@ class RobotKinematics:
 
 def base_H_ee(kinematics, framename):
     if framename not in kinematics.robotGeometry.framesModel.framesByName:
-        logger.error("Could not find frame '{0}' in model '{1}'".format(framename, kinematics.robotGeometry.treeModel.name))
+        logger.error("Could not find frame '{0}' in model '{1}'".format(framename, kinematics.robotGeometry.robotName))
         return None
 
     ee = kinematics.robotGeometry.framesModel.framesByName[ framename ]
