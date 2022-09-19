@@ -1,0 +1,35 @@
+[project]
+
+name        = "robot-model-tools"
+version     = "0.1.0"
+description = "Misc utilities to work with robot model formats"
+authors     = [
+    { name = "Marco Frigerio", email = "marco.frigerio17@pm.me" }
+]
+
+license = { file = "LICENSE" }
+readme = "readme.md"
+
+requires-python = ">=3.4"
+
+dependencies = [
+    'kgprim',
+    'networkx',
+    'numpy',
+    'pyyaml',
+    'pygraphviz',
+    'textX',
+    'mako'
+]
+
+urls = { home= "https://github.com/mfrigerio17/robot-model-tools" }
+
+[project.scripts]
+rmt = "rmt.rmt:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.package-data]
+# include the textX grammar
+"robmodel.convert.kindsl" = ["*.tx"]
