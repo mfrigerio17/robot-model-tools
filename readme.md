@@ -80,6 +80,13 @@ Optionally:
   generator command of the `rmt` tool
 
 
+# Testing
+Verify your installation by moving to the `test/` folder and running
+```
+python ur5.py
+```
+
+
 # License
 
 Copyright © 2019-2022, Marco Frigerio
