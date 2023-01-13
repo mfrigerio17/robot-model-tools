@@ -4,7 +4,6 @@ import numpy
 import kgprim.motions as motions
 import kgprim.ct.frommotions as frommotions
 import kgprim.ct.repr.mxrepr as mxrepr
-import motiondsl.motiondsl as motdsl
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +47,8 @@ def base_H_ee(kinematics, framename):
 
 
 def serializeToMotionDSLModel(robotKinematics, ostream):
+    import motiondsl.motiondsl as motdsl
+
     header ='''
 Model {modelname}
 
