@@ -29,7 +29,7 @@ FixedRobotBase:
 FloatingRobotBase:
     'RobotBase' name=ID 'floating'
    '{'
-    bodyInertia = InertiaProperties
+    (bodyInertia = InertiaProperties)?
     childrenList = ChildrenList
     ('frames' ('{'frames += RefFrame+'}')+)?
     '}';
@@ -37,7 +37,7 @@ FloatingRobotBase:
 Link:
     'link' name=ID '{'
     'id' '=' num = INT
-    bodyInertia = InertiaProperties
+    (bodyInertia = InertiaProperties)?
     childrenList = ChildrenList
     ('frames' ('{'frames += RefFrame+'}')+)?
     '}';

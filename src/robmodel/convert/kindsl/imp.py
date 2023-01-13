@@ -168,24 +168,27 @@ def convert(kindslFile, params={}):
 
     for linkin in inertiaBodies:
         ipin = linkin.bodyInertia
-        #TODO support the inertia properties in the user-frame
-        frame = framesModel.framesByName[ linkin.name ]
-        mass = exprValue(ipin.mass)
-        com = inertia.CoM(frame,
-                          x = exprValue(ipin.com.x),
-                          y = exprValue(ipin.com.y),
-                          z = exprValue(ipin.com.z))
-        im = inertia.IMoments(frame,
-                              ixx = exprValue(ipin.ixx),
-                              iyy = exprValue(ipin.iyy),
-                              izz = exprValue(ipin.izz),
-                              ixy = exprValue(ipin.ixy),
-                              ixz = exprValue(ipin.ixz),
-                              iyz = exprValue(ipin.iyz))
+        if ipin is not None:
+            #TODO support the inertia properties in the user-frame
+            frame = framesModel.framesByName[ linkin.name ]
+            mass = exprValue(ipin.mass)
+            com = inertia.CoM(frame,
+                              x = exprValue(ipin.com.x),
+                              y = exprValue(ipin.com.y),
+                              z = exprValue(ipin.com.z))
+            im = inertia.IMoments(frame,
+                                  ixx = exprValue(ipin.ixx),
+                                  iyy = exprValue(ipin.iyy),
+                                  izz = exprValue(ipin.izz),
+                                  ixy = exprValue(ipin.ixy),
+                                  ixz = exprValue(ipin.ixz),
+                                  iyz = exprValue(ipin.iyz))
 
-        inertiadict[linkin.name] = inertia.BodyInertia(mass, com, im)
+            inertiadict[linkin.name] = inertia.BodyInertia(mass, com, im)
 
-    inertiaModel = inertia.RobotLinksInertia(connectivityModel, framesModel, inertiadict)
+    inertiaModel = None
+    if len(inertiadict) > 0:
+        inertiaModel = inertia.RobotLinksInertia(connectivityModel, framesModel, inertiadict)
 
 
     return connectivityModel, orderedModel, framesModel, geometryModel, inertiaModel
