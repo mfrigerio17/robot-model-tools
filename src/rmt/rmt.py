@@ -36,8 +36,9 @@ def getmodels(filepath, paramsfilepath=None, floatLiteralsAsConstants=False):
         try:
             import robmodel.convert.kindsl.imp as kindslin
         except ImportError as e:
-            log.error("KinDSL support not available!, are you perhaps missing textX in your Python environment?"+
-                      " The import error was: " + e.msg())
+            log.error("KinDSL support not available! " +
+                      "Perhaps you miss 'textX' in the Python environment? "+
+                      "The import error was: " + str(e))
             exit(-1)
         params = {}
         if paramsfilepath is not None:
