@@ -45,7 +45,6 @@ jointTypeStr = {
 def __raise(name):
     raise RuntimeError("Cannot get the numeric value of parameter '{0}'".format(name))
 
-__currentParams = {}
 
 
 
@@ -86,9 +85,7 @@ def linkFrameToOtherFrameInKinDSL(refFrame):
     return motion__linkToJoint
 
 
-def convert(kindslFile, params={}):
-    global __currentParams
-    __currentParams = params
+def convert(kindslFile):
     robin = dsl.modelFromFile(kindslFile)
 
     links  = ODict()

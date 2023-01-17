@@ -40,12 +40,7 @@ def getmodels(filepath, paramsfilepath=None, floatLiteralsAsConstants=False):
                       "Perhaps you miss 'textX' in the Python environment? "+
                       "The import error was: " + str(e))
             exit(-1)
-        params = {}
-        if paramsfilepath is not None:
-            istream = open(paramsfilepath)
-            params  = yaml.load(istream)
-            istream.close()
-        connectivity, ordering, frames, geometry, inertia = kindslin.convert(filepath, params)
+        connectivity, ordering, frames, geometry, inertia = kindslin.convert(filepath)
 
     elif ext == '.yaml' :
         import yaml
@@ -87,7 +82,18 @@ def getmodels(filepath, paramsfilepath=None, floatLiteralsAsConstants=False):
         log.error("Unknown robot model extension '{0}'".format(ext))
         exit(-1)
 
-    return connectivity, ordering, frames, geometry, inertia
+    params = {}
+    if paramsfilepath is not None:
+        _, ext = os.path.splitext(paramsfilepath)
+        if ext == '.yaml' :
+            import yaml
+            istream = open(paramsfilepath)
+            params  = yaml.safe_load(istream)
+            istream.close()
+        else:
+            log.warning("Unknown extension '{}' for the parameters file".format(ext))
+
+    return connectivity, ordering, frames, geometry, inertia, params
 
 def defpose(args):
     robot,frames,geometry = getmodels(args.robot, args.params)[1:4]
@@ -100,7 +106,7 @@ def defpose(args):
     print(np.round(H,5))
 
 def printinfo(args):
-    c,o,f,g,i = getmodels(args.robot)
+    c,o,f,g,i,_ = getmodels(args.robot)
     print(c,o,f,g,i)
 
 def writeDOTFile(args):
@@ -132,8 +138,9 @@ def writeMotDSLFile(args):
         ostream.close()
 
 def export(args):
-    c,o,f,g,i = getmodels(args.robot)
+    c,o,f,g,i,params = getmodels(args.robot, args.params)
     oformat = args.oformat
+
     if oformat is None: oformat = 'yaml'
 
     if oformat == 'yaml' :
@@ -156,7 +163,7 @@ def export(args):
         if g is not None :
             text = urdfout.geometry(g)
         elif o is None:
-            log.error("Cannot export a URDF is the input model that does not even include ordering")
+            log.error("Cannot export a URDF if the input model does not even include ordering")
             exit(-1)
         else :
             text = urdfout.ordering(o)
