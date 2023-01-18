@@ -8,6 +8,7 @@ import robmodel.inertia
 import robmodel.jposes
 
 import rmt.kinematics
+import kgprim.values
 
 log = logging.getLogger() # get the root logger, this is a command line app
 
@@ -137,6 +138,21 @@ def writeMotDSLFile(args):
     if closeOstream :
         ostream.close()
 
+
+def _resolve_parameters(geometryModel, parametersValues):
+    # Replace the parameters in geometry model with constants with the given
+    # value. This allows the numerical evaluation of the geometry data, e.g.
+    # when exporting the model to a format that does not support parameters.
+    count = 0
+    for poseSpec in geometryModel.posesModel.poses:
+        for motionSeq in poseSpec.motion.sequences:
+            for step in motionSeq.steps:
+                if isinstance(step.amount, kgprim.values.Expression):
+                    if isinstance(step.amount.argument, kgprim.values.Parameter):
+                        val = step.amount.expr.subs(parametersValues) # SymPy subs()
+                        step.amount = kgprim.values.Expression( kgprim.values.Constant("c{}".format(count), val) )
+                        count = count + 1
+
 def export(args):
     c,o,f,g,i,params = getmodels(args.robot, args.params)
     oformat = args.oformat
@@ -162,6 +178,7 @@ def export(args):
         elif oformat == 'urdf' :
             import robmodel.convert.urdf.exp as urdfout
             if g is not None :
+                _resolve_parameters(g, params)
                 text = urdfout.geometry(g)
             elif o is None:
                 log.error("Cannot export a URDF if the input model does not even include ordering")
