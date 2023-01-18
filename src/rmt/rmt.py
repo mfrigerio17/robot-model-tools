@@ -1,4 +1,4 @@
-import os, sys, logging, argparse
+import os, sys, logging, argparse, traceback
 import networkx as nx
 import numpy as np
 
@@ -143,47 +143,51 @@ def export(args):
 
     if oformat is None: oformat = 'yaml'
 
-    if oformat == 'yaml' :
-        log.error('Sorry, not implemented yet')
-        exit(-1)
-    elif oformat == 'kindsl' :
-        try:
-            import robmodel.convert.kindsl.exp as kindslout
-        except ImportError as e:
-            log.error("KinDSL support not available!, are you perhaps missing textX in your Python environment?"+
-                    " The import error was: " + e.msg())
+    try:
+        if oformat == 'yaml' :
+            log.error('Sorry, not implemented yet')
             exit(-1)
-        if g is not None:
-            text = kindslout.geometry(g)
+        elif oformat == 'kindsl' :
+            try:
+                import robmodel.convert.kindsl.exp as kindslout
+            except ImportError as e:
+                log.error("KinDSL support not available!, are you perhaps missing textX in your Python environment?"+
+                        " The import error was: " + e.msg())
+                exit(-1)
+            if g is not None:
+                text = kindslout.geometry(g)
+            else :
+                log.error("Sorry, I can export to KinDSL only a complete geometry model ")
+                exit(-1)
+        elif oformat == 'urdf' :
+            import robmodel.convert.urdf.exp as urdfout
+            if g is not None :
+                text = urdfout.geometry(g)
+            elif o is None:
+                log.error("Cannot export a URDF if the input model does not even include ordering")
+                exit(-1)
+            else :
+                text = urdfout.ordering(o)
         else :
-            log.error("Sorry, I can export to KinDSL only a complete geometry model ")
+            log.error("Unknown robot model format '{0}'".format(ext))
             exit(-1)
-    elif oformat == 'urdf' :
-        import robmodel.convert.urdf.exp as urdfout
-        if g is not None :
-            text = urdfout.geometry(g)
-        elif o is None:
-            log.error("Cannot export a URDF if the input model does not even include ordering")
-            exit(-1)
-        else :
-            text = urdfout.ordering(o)
-    else :
-        log.error("Unknown robot model format '{0}'".format(ext))
+    except Exception as e:
+        log.error("Could not export the robot model: {}".format(e))
+        log.error(traceback.format_exc())
         exit(-1)
 
-    ostream = sys.stdout
-    closeOstream = False
-    outfile = args.outfile
-    if outfile is not None :
+
+    if args.outfile is not None :
         try:
-            ostream = open(outfile, 'w')
-            closeOstream = True
-        except IOError :
-            log.error("Could not open file '{0}'".format(outfile))
+            ostream = open(args.outfile, 'w')
+            ostream.write(text)
+            ostream.close()
+        except Exception as e :
+            log.error("Could not write to file '{0}': {1}".format(args.outfile, e))
             exit(-1)
-    ostream.write(text)
-    if closeOstream :
-        ostream.close()
+    else:
+        sys.stdout.write(text)
+        # do not close() sys.stdout :)
 
 def playground(args):
     inertia = getmodels(args.robot)[4]
