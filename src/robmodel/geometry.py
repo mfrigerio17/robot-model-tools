@@ -147,3 +147,27 @@ class Geometry:
     def jointAxes(self):
         return self.axes
 
+
+def getPoseSpec(geometryModel, frame):
+    '''
+    Retrive the pose specification of the given frame, from the given geometry
+    model.
+
+    Parameters:
+      - `geometryModel`: and instance of `Geometry`
+      - `frame`: a `kgprim.core.Attachment` instance, whose `entity` field
+        must be a `kgprim.core.Frame`. The `body` field should be a link of the
+        same robot as the one that the geometry model refers to.
+
+    Returns: the `kgprim.motions.PoseSpec` describing the pose of the given
+    frame, relative to the frame of the link it is attached to.
+
+    So for example, if the given `frame` is the elbow frame attached to the
+    forearm link of a humanoid robot, this function returns the pose of the
+    elbow frame relative to the forearm frame.
+    '''
+    pose = geometryModel.framesModel.poseRelativeToSupportingLinkFrame(frame)
+    if pose is not None :
+        if pose in geometryModel.byPose :
+            return geometryModel.byPose[ pose ]
+    return None
