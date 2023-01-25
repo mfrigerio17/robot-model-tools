@@ -65,21 +65,25 @@ class KPair:
 class Robot:
     '''
     The connectivity model of an articulated robot.
+    This is basically a graph whose nodes are the robot links, while edges are
+    the joints.
 
+    Connectivity does not include any numerical data about the geometry nor
+    inertia of the robot.
     '''
 
     def __init__(self, name, links, joints, pairs):
         self.log = logging.getLogger('robot')
         self._name = name
-        self.links = links  # by-name map
-        self.joints= joints # by-name map
+        self._links = links  # by-name map
+        self._joints= joints # by-name map
 
         # A map from joint to links in the pair
         self.pairs = {kp.joint: (kp.link1, kp.link2) for kp in pairs}
 
-        self.nB = len(self.links)             # number of bodies
-        self.nJ = len(self.joints)            # number of joints
-        self.nLoopJ = self.nJ - (self.nB - 1) # number of loop joints
+        self._nB = len(links)             # number of bodies
+        self._nJ = len(joints)            # number of joints
+        self._nLoopJ = self._nJ - (self._nB - 1) # number of loop joints
 
         # The connectivity graph.
         # Note that it can be used as a map bewteen link-pairs to joint
@@ -91,6 +95,31 @@ class Robot:
 
     @property
     def name(self) : return self._name
+
+    @property
+    def links(self) :
+        '''A dictionary of all the links of this model, indexed by link-name'''
+        return self._links
+
+    @property
+    def joints(self) :
+        '''A dictionary of all the joints of this model, indexed by joint-name'''
+        return self._joints
+
+    @property
+    def nB(self) :
+        '''The number of rigid links of this mechanism'''
+        return self._nB
+
+    @property
+    def nJ(self) :
+        '''The number of joints of this mechanism'''
+        return self._nJ
+
+    @property
+    def nLoopJ(self) :
+        '''The number of loop-joints of this mechanism'''
+        return self._nLoopJ
 
     def hasLoops(self):
         return self.nLoopJ > 0
@@ -105,7 +134,7 @@ class Robot:
 
     def jointToLinkPair(self, joint):
         '''
-        The `KPair` object whose joint is the given joint
+        The (l1,l2) tuple with the links connected by the given joint
         '''
         return self.pairs[joint]
 
