@@ -96,10 +96,10 @@ def getmodels(filepath, paramsfilepath=None, floatLiteralsAsConstants=False):
     return connectivity, ordering, frames, geometry, inertia, params
 
 def defpose(args):
-    robot,frames,geometry = getmodels(args.robot, args.params)[1:4]
+    robot,frames,geometry,_,paramsValues = getmodels(args.robot, args.params)[1:6]
     jointPoses = robmodel.jposes.JointPoses(robot, frames, geometry.jointAxes)
     kin = rmt.kinematics.RobotKinematics(geometry, jointPoses)
-    H = rmt.kinematics.base_H_ee(kin, args.frame)
+    H = rmt.kinematics.base_H_ee(kin, args.frame, paramsValues)
     if H is None :
         log.error("Could not compute the frame pose")
         exit(-1)
