@@ -1,7 +1,11 @@
 '''
-The Robot Model Tool package.
+The Robot Model Tool (rmt) package.
 
-This package relies heavily on the `robmodel` package. It implements a command
-line tool for the inspection and conversion of articulated robot models in
-different formats, like KinDSL and URDF.
+A command line tool for the inspection and conversion of
+articulated robot models in different formats, like KinDSL and URDF.
+
+Normally, the modules of this package and their API are not relevant for the
+end user, since they are limited to the command line tool. For programmatic
+usage of the API to load robot models, refer to the `robmodel` package, which
+this package largely relies on.
 '''

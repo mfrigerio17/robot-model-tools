@@ -1,4 +1,4 @@
-This is the readme file of the Python Robot Model Tools.
+This is the readme file of the "Robot Model Tools" Python package.
 
 The modules in the `robmodel` package allow to model some aspects of articulated
 robots, such as connectivity, numbering scheme of the links, attached frames,
@@ -13,7 +13,7 @@ rmt --help
 
 for a list of the available sub commands.
 
-You can also try the program without installing the packages in this repository
+You can try the program without installing this repository
 (although you still need to install the dependencies):
 ```
 cd src/
@@ -25,18 +25,20 @@ cd src/
 More information about the packages and the modules of this project is available
 in the source code.
 
-You can generate e.g. html documentation using
-[pdoc3](https://pdoc3.github.io/pdoc/) (requires Python 3.5+).
+You can generate e.g. html documentation using [pdoc](https://pdoc.dev/).
 For example:
 
 ```sh
-pip install pdoc3  # don't forget the '3'
 cd src/
-pdoc --html --config show_source_code=False -o /tmp/docs/rmt rmt/ robmodel/
+pdoc --no-show-source -o /tmp/docs/rmt rmt/ robmodel/
 ```
 
 # Installation
-Please install from source code, using `pip`:
+```
+pip install rmt
+```
+
+Alternatively, install from the source code:
 
 ```sh
 git clone <repo> rmt    # replace <repo> with the right URL
@@ -44,11 +46,6 @@ cd rmt/
 pip install .           # should also install the dependencies available in PyPI
 ```
 
-The [`kgprim`](https://github.com/mfrigerio17/kgprim) package must be installed
-manually in order to use the Robot Model Tools (it is not yet in the PyPI).
-
-Do **not** install with `python setup.py install`. However, you can clean the
-source tree after installation with `python setup.py realclean`.
 
 #### Virtual environment
 You might want to install the tool and its dependencies in an isolated virtual
@@ -57,12 +54,10 @@ environment. If so, run the following before the installation procedure:
 ```sh
 mkdir myvenv && python3 -m venv myvenv
 source myvenv/bin/activate  # may need to pick another script depending on your shell
-pip install wheel           # also required to set up the env
+#pip install wheel           # may also required to set up the env
 ```
 
 ## Dependencies
-Python >= 3.3
-
 The following libraries are used by this project:
 
 - [kgprim](https://github.com/mfrigerio17/kgprim) kinematics/geometric primitives
@@ -71,8 +66,6 @@ The following libraries are used by this project:
   graph
 
 - [NumPy](http://www.numpy.org)
-
-- [SymPy](http://www.sympy.org)
 
 Optionally:
 
@@ -86,13 +79,17 @@ Optionally:
 - [PyGraphviz](https://pygraphviz.github.io/), required only by the DOT file
   generator command of the `rmt` tool
 
+
+# Testing
+Verify your installation by moving to the `test/` folder and running
 ```
-pip install wheel networkx numpy sympy textx pyyaml pygraphviz
+python ur5.py
 ```
+
 
 # License
 
-Copyright © 2019-2020, Marco Frigerio
+Copyright © 2019-2022, Marco Frigerio
 
 Released under the BSD 3-clause license. See the `LICENSE` file for additional
 information.

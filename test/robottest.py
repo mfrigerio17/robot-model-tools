@@ -10,10 +10,16 @@ logger = logging.getLogger(None) # get the "root" logger
 
 class SampleRobotModel:
     '''
-    Loader of models contained in the sample/ folder
+    Utility base class to load models contained in the `sample/` folder
     '''
 
     def __init__(self, name, extension):
+        '''
+        - `name`: the name of the robot model to load
+        - `extension`: the model file extension, e.g. "kindsl", "urdf", ...
+
+        This function will try to load the model `sample/<name>/<name>.<extension>`
+        '''
         rpath = os.path.join( name, name+'.'+extension ) # <name>/<name>.<extension>
         rfile = os.path.join( models_dir, rpath )
         logger.debug("Trying to load {0}".format(rfile))
@@ -24,8 +30,8 @@ class RobotTestBase(unittest.TestCase):
     def setUp(self):
         '''
         Expect robot-data to be in the class, and copy a reference to the
-        fields in the instance (i.e. self), so that test code can use the robot
-        data
+        fields in the instance (i.e. self). This way the test code can access
+        the robot model data and ground-truth data via self.
         '''
         cls = self.__class__
         self.robot = cls.robotdata.ordering
@@ -35,7 +41,6 @@ class RobotTestBase(unittest.TestCase):
         self.groundtruth  = cls.robotdata.groundtruth
 
 def main():
-    logger = logging.getLogger(None) # get the "root" logger
     formatter = logging.Formatter('%(levelname)s (%(name)s) : %(message)s')
     handler   = logging.StreamHandler()
     handler.setFormatter(formatter)

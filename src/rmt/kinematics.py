@@ -15,7 +15,7 @@ class RobotKinematics:
     model. By merging the two, this class have access to the full robot
     kinematics.
 
-    Thanks to gr.motions.ConnectedFramesInspector, an arbitrary relative pose
+    Thanks to `kgprim.motions.ConnectedFramesInspector`, an arbitrary relative pose
     between two frames on the robot can be obtained.
     '''
     def __init__(self, geometry, jointPoses):

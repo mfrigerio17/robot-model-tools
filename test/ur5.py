@@ -1,12 +1,15 @@
-import os, logging, unittest
-
 from robmodel.treeutils import TreeUtils
 
 from testcore import BasicTests, TreeTests
 import robottest
 from robottest import SampleRobotModel, RobotTestBase
 
+'''
+Test classes for the UR5 robot model contained in the `sample/` folder.
 
+Tests are created by inheriting and mixing the base classes defined in the
+other modules, and the ur5-specific classes in this module.
+'''
 
 class UR5KinDSLModel(SampleRobotModel):
     def __init__(self, **kwds):
@@ -21,6 +24,14 @@ class UR5YAMLModel(SampleRobotModel):
         super().__init__(name='ur5', extension='yaml', **kwds)
 
 class UR5TestData:
+    '''
+    The class that defines the ground-truth data about a robot, such as the
+    number of joints, or the parentship relation.
+
+    A class like this one must be manually written for each robot model that one
+    wants to test.
+    '''
+
     def __init__(self, **kwds):
         super().__init__(**kwds)
         gt = {}
@@ -37,6 +48,8 @@ class UR5TestData:
         self.groundtruth = gt
         self.treeutils   = TreeUtils(self.ordering)
 
+
+# mix the ground-truth data with the model data:
 
 class UR5_data_kindsl(UR5TestData, UR5KinDSLModel): pass
 class UR5_data_urdf  (UR5TestData, UR5URDFModel  ): pass

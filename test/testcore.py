@@ -1,10 +1,14 @@
-import unittest, logging, os
-
-
+import logging
 
 logger = logging.getLogger(None) # get the "root" logger
 
+'''
+Common, basic tests that can be performed on loaded robot models.
 
+The "self" instance is expected to have members for the loaded models, as well
+as ground-truth data for comparisons. See the `ur5.py` module for an example
+of how to setup actual tests for an actual model.
+'''
 
 class BasicTests:
     def test_counts(self):
