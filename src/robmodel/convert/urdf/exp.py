@@ -40,6 +40,7 @@ tpl = Template('''
         <child  link="${robot.successor  (joint).name}"/>
         <% x,y,z = geometry.jointAxes[joint.name] %>
         <axis xyz="${tostr(x)} ${tostr(y)} ${tostr(z)}"/>
+        <limit effort="30" velocity="10.0" lower="-3.14" upper="3.14" />
     </joint>
 
 % endfor
@@ -73,6 +74,7 @@ def jointOrigin(geometryModel, joint):
 
 
 def ordering(orderingModel):
+    logger.warn("Generated joint limits are arbitrary")
     formatter = utils.FloatsFormatter()
     return tpl.render(
         robot=orderingModel,
@@ -82,6 +84,7 @@ def ordering(orderingModel):
     )
 
 def geometry(geometryModel):
+    logger.warn("Generated joint limits are arbitrary")
     formatter = utils.FloatsFormatter()
     return tpl.render(
         robot=geometryModel.connectivityModel,
