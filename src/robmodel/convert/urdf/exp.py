@@ -35,11 +35,11 @@ tpl = Template('''
 %if geometry is not None :
     <% x,y,z,rx,ry,rz = jointParams(geometry, joint) %>
         <origin xyz="${tostr(x)} ${tostr(y)} ${tostr(z)}" rpy="${tostr(rx)} ${tostr(ry)} ${tostr(rz)}"/>
+        <% x,y,z = geometry.jointAxes[joint.name] %>
+        <axis xyz="${tostr(x)} ${tostr(y)} ${tostr(z)}"/>
 %endif
         <parent link="${robot.predecessor(joint).name}"/>
         <child  link="${robot.successor  (joint).name}"/>
-        <% x,y,z = geometry.jointAxes[joint.name] %>
-        <axis xyz="${tostr(x)} ${tostr(y)} ${tostr(z)}"/>
         <limit effort="30" velocity="10.0" lower="-3.14" upper="3.14" />
     </joint>
 
@@ -80,6 +80,7 @@ def ordering(orderingModel):
         robot=orderingModel,
         geometry=None,
         jointParams=None,
+        jointKind = jointKind,
         tostr=lambda num: formatter.float2str(num)
     )
 
