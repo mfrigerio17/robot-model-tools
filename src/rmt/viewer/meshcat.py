@@ -26,7 +26,8 @@ class CustomCommand:
         self.subcmd = subcmd
     def lower(self):
         return {
-            u"type": u"custom",
+            u"type"   : u"plugin",
+            u"pluginname" : u"RobModelExtras",
             u"path": self.path.lower(),
             u"data": u"aaa",
         u"subtype" : self.subcmd.lower()
