@@ -20,7 +20,7 @@ tpl = Template('''
 %for aframe in geometry.framesModel.userAttachedFrames:
     <link name="${aframe.entity.name}">
     </link>
-    <% x,y,z,rx,ry,rz = dummyJointParams(geometry, aframe) %>
+<% x,y,z,rx,ry,rz = dummyJointParams(geometry, aframe) %>
     <joint name="dummy_${aframe.entity.name}" type="fixed">
         <origin xyz="${tostr(x)} ${tostr(y)} ${tostr(z)}" rpy="${tostr(rx)} ${tostr(ry)} ${tostr(rz)}"/>
         <parent link="${aframe.body.name}"/>
@@ -33,9 +33,9 @@ tpl = Template('''
 %for joint in robot.joints.values():
     <joint name="${joint.name}" type="${jointKind(joint)}">
 %if geometry is not None :
-    <% x,y,z,rx,ry,rz = jointParams(geometry, joint) %>
+<% x,y,z,rx,ry,rz = jointParams(geometry, joint) %>
         <origin xyz="${tostr(x)} ${tostr(y)} ${tostr(z)}" rpy="${tostr(rx)} ${tostr(ry)} ${tostr(rz)}"/>
-        <% x,y,z = geometry.jointAxes[joint.name] %>
+<% x,y,z = geometry.jointAxes[joint.name] %>
         <axis xyz="${tostr(x)} ${tostr(y)} ${tostr(z)}"/>
 %endif
         <parent link="${robot.predecessor(joint).name}"/>
