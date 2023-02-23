@@ -156,6 +156,9 @@ class Robot:
         else :
             self.log.debug("OK, the robot graph is connected")
 
+        for j in self.joints.values() :
+            if j not in self.pairs.keys():
+                self.log.error("Joint {} does not connect any link".format(j.name))
 
 def fromDict(data):
     '''
