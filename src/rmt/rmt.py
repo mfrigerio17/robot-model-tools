@@ -27,8 +27,8 @@ def getmodels(filepath, paramsfilepath=None, floatLiteralsAsConstants=False):
             urdfwrap = urdfin.URDFWrapper(urdffile)
             connectivity, ordering, frames, geometry = urdfin.convert(urdfwrap)
         except Exception as e:
-            log.error("Failed to load URDF model: {0}".format(e))
-            urdffile.close()
+            log.error("Failed to load URDF model: {} - {}".format(e.__class__.__name__, e))
+            log.debug(traceback.format_exc(limit=-4))
             exit(-1)
         urdffile.close()
 
