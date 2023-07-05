@@ -1,9 +1,11 @@
 import logging
+import numbers
 from mako.template import Template
 
 import robmodel.convert.utils as utils
 
 import kgprim.ct as ct
+import kgprim.ct.metadata as ctmetadata
 import kgprim.ct.repr.mxrepr as mxrepr
 
 from robmodel.connectivity import JointKind
@@ -100,7 +102,15 @@ def userFrameParams(geometryModel, frame):
 
 def poseParams( poseSpec ):
     xt = ct.frommotions.toCoordinateTransform( poseSpec )
-    H  = mxrepr.hCoordinatesNumeric(xt)
+    mdata = ctmetadata.TransformMetadata(xt)
+    H = None
+    if mdata.parametric:
+        H  = mxrepr.hCoordinatesSymbolic(xt)
+    else:
+        H  = mxrepr.hCoordinatesNumeric(xt)
+    # the next will fail in case of symbols, because it uses functions from math
+    # We need a way to retrieve the "right" math functions for a given transform,
+    #  like C++ traits.
     irx,iry,irz = utils.getIntrinsicXYZFromR( H )
 
     return H[0,3], H[1,3], H[2,3], irx,iry,irz
@@ -170,7 +180,7 @@ def inertiaProperties(geometryModel, inertiaModel, link) :
 def modelText(geometryModel, inertiaModel=None):
     connect= geometryModel.connectivityModel
     frames = geometryModel.framesModel
-    formatter = utils.FloatsFormatter(pi_string="PI")
+    formatter = Formatter(utils.FloatsFormatter(pi_string="PI"))
     tree = TreeUtils(connect)
 
     return tpl.render(
@@ -183,6 +193,16 @@ def modelText(geometryModel, inertiaModel=None):
         linkUserFrames=lambda l : linkUserFrames(frames, l),
         frameParams= lambda f : userFrameParams(geometryModel, f),
         linkInertia= lambda link : inertiaProperties(geometryModel, inertiaModel, link),
-        tostr=lambda num, isAngle=False: formatter.float2str(num, isAngle)
+        tostr=lambda num, isAngle=False: formatter.toString(num, isAngle)
     )
+
+class Formatter:
+    def __init__(self, floatsFormatter):
+        self.fformatter = floatsFormatter
+
+    def toString(self, value, isAngle=False):
+        if isinstance(value, numbers.Number):
+            return self.fformatter.float2str(value, isAngle)
+        else:
+            return str(value)
 
