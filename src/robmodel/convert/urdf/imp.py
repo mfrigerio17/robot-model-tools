@@ -257,8 +257,8 @@ def convert( urdf ) :
         logger.debug("Joint axis in URDF coordinates    : {0}".format(jaxis) )
         logger.debug("URDF joint xyz and rpy attributes : {0}   {1}".format(xyz, rpy) )
 
-        frame_joint = framesModel.framesByName[ myjoint.name ]
-        frame_link  = framesModel.framesByName[ mylink.name  ]
+        frame_joint = framesModel.framesByName[ robmodel.frames.jointFrameName(orderedModel, myjoint) ]
+        frame_link  = framesModel.framesByName[ robmodel.frames.linkFrameName(orderedModel, mylink)  ]
         pose = primitives.Pose(target=frame_joint, reference=frame_link)
         poses.append( PoseSpec(pose, motion_link_to_joint) )
         axes[myjoint.name] = joint.frame['axis']

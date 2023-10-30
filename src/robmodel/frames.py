@@ -47,6 +47,17 @@ class FrameRelationKind(enum.Enum):
     acrossJoint= 'acrossJoint'
 
 
+def linkFrameName(robot, link):
+    return link.name
+
+def jointFrameName(robot, joint):
+    if joint.name in robot.links.keys():
+        # if the joint has the same name as a link, we cannot use that name
+        # for the frame name, because there will be a duplicate
+        return "j_" + joint.name
+    else:
+        return joint.name
+
 
 
 import networkx as nx
@@ -64,13 +75,6 @@ import networkx as nx
 
 
 class RobotDefaultFrames():
-
-    @classmethod
-    def linkFrameName(cls, robot, link):
-        return link.name
-    @classmethod
-    def jointFrameName(cls, robot, joint):
-        return joint.name
 
     def path(self, frame1, frame2):
         return nx.shortest_path(self.graph, frame1, frame2)
@@ -174,13 +178,13 @@ class RobotDefaultFrames():
         return graph
 
     def _linkFrame(self, link):
-        fName = self.linkFrameName(self.robot, link)
+        fName = linkFrameName(self.robot, link)
         aframe = primitives.Attachment( primitives.Frame(fName), link )
         aframe.attrs['role'] = FrameRole.linkRef
         return aframe
 
     def _linkJointFrame(self, link, joint):
-        fName = self.jointFrameName(self.robot, joint)
+        fName = jointFrameName(self.robot, joint)
         aframe = primitives.Attachment( primitives.Frame(fName), link )
         aframe.attrs['role'] = FrameRole.joint
         return aframe

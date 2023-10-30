@@ -142,15 +142,15 @@ def convert(kindslFile):
         joint = joints[ jointin.name ]
         link  = orderedModel.predecessor(joint)
 
-        frame_joint = framesModel.framesByName[ joint.name ]
-        frame_link  = framesModel.framesByName[ link.name  ]
+        frame_joint = framesModel.framesByName[ robmodel.frames.jointFrameName(orderedModel, joint) ]
+        frame_link  = framesModel.framesByName[ robmodel.frames.linkFrameName(orderedModel, link) ]
         pose = primitives.Pose(target=frame_joint, reference=frame_link)
         poses.append( PoseSpec(pose, motion_link_to_joint) )
 
     for linkin in allBodies :
         for fr in linkin.frames :
             motion_link_to_user = linkFrameToOtherFrameInKinDSL(fr.transform)
-            frame_link = framesModel.framesByName[ linkin.name ]
+            frame_link = framesModel.framesByName[ robmodel.frames.linkFrameName(orderedModel, linkin) ]
             frame_user = framesModel.framesByName[ fr.name ]
             pose       = primitives.Pose(target=frame_user, reference=frame_link)
             poses.append( PoseSpec(pose, motion_link_to_user) )
@@ -167,7 +167,7 @@ def convert(kindslFile):
         ipin = linkin.bodyInertia
         if ipin is not None:
             #TODO support the inertia properties in the user-frame
-            frame = framesModel.framesByName[ linkin.name ]
+            frame = framesModel.framesByName[ robmodel.frames.linkFrameName(orderedModel, linkin) ]
             mass = exprValue(ipin.mass)
             com = inertia.CoM(frame,
                               x = exprValue(ipin.com.x),
