@@ -13,6 +13,7 @@ import meshcat.geometry as meshcatg
 from kgprim.core import Pose
 import kgprim.ct.frommotions as frommotions
 import kgprim.ct.repr.mxrepr as mxrepr
+import kgprim.ct.metadata
 
 import robmodel.jposes
 import robmodel.treeutils as treeu
@@ -34,12 +35,13 @@ class CustomCommand:
         }
 
 class MeshCatScene:
-    def __init__(self, robotGeometry, tree, robotTransforms, meshcatVisualizer):
+    def __init__(self, robotGeometry, tree, robotTransforms, meshcatVisualizer, robotGeometryParams=None):
         self.vis = meshcatVisualizer
         self.rob = tree.robot
         self.tree= tree
         self.geom= robotGeometry
         self.tf  = robotTransforms
+        self.robotGeometryParams = robotGeometryParams
 
         self.jointTransforms = {}
         self.linkByJoint = {}
@@ -78,9 +80,7 @@ class MeshCatScene:
                 # relative to the predecessor link frame
                 pose  = self.geom.byJoint[ joint ]  # joint_wrt_predecessor
                 parent_CT_joint = frommotions.toCoordinateTransform(pose)
-                parent_H_joint  = mxrepr.hCoordinatesNumeric(parent_CT_joint)
-                mcatJoint.set_transform( parent_H_joint )
-
+                mcatJoint.set_transform( self._getNumericalMatrix(parent_CT_joint) )
 
                 tr = self.tf.jointTransform(joint)
                 tr = mxrepr.hCoordinatesSymbolic(tr)
@@ -129,8 +129,7 @@ class MeshCatScene:
                 frame.window.send( cmd )
                 # set the transform, to orient the frame relative to the link
                 link_CT_frame = frommotions.toCoordinateTransform(poseSpec)
-                link_H_frame  = mxrepr.hCoordinatesNumeric(link_CT_frame)
-                frame.set_transform( link_H_frame )
+                frame.set_transform( self._getNumericalMatrix(link_CT_frame) )
             else :
                 logger.warning("Could not find the motion model for pose '{0}'".format(pose))
 
@@ -143,6 +142,24 @@ class MeshCatScene:
                 numval = tr.eval( q[i] )
                 mcatLink = self.linkByJoint[joint.name]
                 mcatLink.set_transform( numval )
+
+    def _getNumericalMatrix(self, ctransform):
+        matrix = None
+        ct_info = kgprim.ct.metadata.TransformMetadata(ctransform)
+        if ct_info.is_parametric :
+            if self.robotGeometryParams is None :
+                raise RuntimeError("Cannot resolve parametric transforms without parameter values")
+
+            matrix_with_symbols = mxrepr.hCoordinatesSymbolic(ctransform)
+            pvalues = {}
+            for p in ct_info.parameters: # this is a ordered set
+                pvalues[p] = self.robotGeometryParams[p.name]
+            matrix_with_symbols.setParametersValue(pvalues)
+            matrix = matrix_with_symbols.eval().astype(float)
+        else:
+            matrix = mxrepr.hCoordinatesNumeric(ctransform).astype(float)
+        return matrix
+
 
 
 def trivialJointMotion(bridgeToScene):
@@ -158,7 +175,7 @@ def trivialJointMotion(bridgeToScene):
         bridgeToScene.setJointStatus( qstate )
 
 
-def start(robotGeometryModel, meshesPaths, meshesPoses):
+def start(robotGeometryModel, meshesPaths, meshesPoses, robotGeometryParams=None):
     robot = robotGeometryModel.connectivityModel
     frames= robotGeometryModel.framesModel
     meshes_H = {}
@@ -183,7 +200,7 @@ def start(robotGeometryModel, meshesPaths, meshesPoses):
 
     def init():
         meshcatv = meshcat.Visualizer()
-        loader   = MeshCatScene(robotGeometryModel, tree, tr, meshcatv)
+        loader   = MeshCatScene(robotGeometryModel, tree, tr, meshcatv, robotGeometryParams)
         meshcatv.wait();
         loader.load(meshesPaths, meshes_H)
         return meshcatv, loader

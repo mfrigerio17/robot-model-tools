@@ -51,7 +51,7 @@ def main():
         help='the specs of the relative pose between mesh and link frame')
 
     args = argparser.parse_args()
-    robotGeometryModel = rmt.getmodels(args.robot, args.params)[3]
+    _, _, _, robotGeometryModel, _, robotGeometryParameters = rmt.getmodels(args.robot, args.params)
 
     istream = open(args.meshes)
     meshes  = yaml.safe_load(istream)
@@ -60,7 +60,7 @@ def main():
     if args.mesh_transforms is not None :
         meshesPoses = getPoseSpecsModel(args.mesh_transforms)
 
-    meshcat_viever.start(robotGeometryModel, meshes, meshesPoses)
+    meshcat_viever.start(robotGeometryModel, meshes, meshesPoses, robotGeometryParameters)
 
 
 if __name__ == "__main__" :
