@@ -16,6 +16,7 @@ import kgprim.ct.repr.mxrepr as mxrepr
 import kgprim.ct.metadata
 
 import robmodel.jposes
+import robmodel.frames
 import robmodel.treeutils as treeu
 
 
@@ -73,7 +74,7 @@ class MeshCatScene:
                 joint     = self.rob.linkPairToJoint(link, parent)
                 mcatJoint = meshCatParent[ joint.name ]
                 mcatLink  = mcatJoint[ link.name ]
-                jframe    = mcatJoint[joint.name + "_frame"]
+                jframe    = mcatJoint[ robmodel.frames.jointFrameName(self.geom.connectivityModel, joint) ]
                 jframe.window.send( CustomCommand(jframe.path, "frame") )
 
                 # Geometrical data, ie the fixed pose of the joint frame
@@ -104,7 +105,7 @@ class MeshCatScene:
             else :
                 logger.warning("Could not find mesh for link '{0}'".format(link.name))
 
-            frame = mcatLink[link.name + "_frame"]
+            frame = mcatLink[ robmodel.frames.linkFrameName(self.geom.connectivityModel, link) ]
             frame.window.send( CustomCommand(frame.path, "frame") )
 
             for child in self.tree.children( link ) :
@@ -117,7 +118,7 @@ class MeshCatScene:
         frames = self.geom.framesModel
         for uFrame in frames.userAttachedFrames :
             userFrame = frames.framesByName[ uFrame.name ]
-            linkFrame = frames.framesByName[ uFrame.body.name ]
+            linkFrame = frames.framesByName[ robmodel.frames.linkFrameName(self.geom.connectivityModel, uFrame.body) ]
             pose = Pose(target=userFrame, reference=linkFrame)
             if pose in self.geom.byPose :
                 poseSpec = self.geom.byPose[ pose ]
