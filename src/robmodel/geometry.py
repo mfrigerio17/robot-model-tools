@@ -78,23 +78,27 @@ class Geometry:
                 ignore = True
 
             if not ignore:
+                # Retrieve by name the frames actually "attached" to the robot
+                # links (because the given poses (in `posesModel`) might be
+                # referring to placeholder frames)
                 tgtF = framesModel.framesByName[ pose.target.name ]
                 refF = framesModel.framesByName[ pose.reference.name ]
-                path = framesModel.path(tgtF, refF)
-                for i in range(len(path)-1) :
-                    kind = framesModel.kind( path[i], path[i+1])
-                    if kind == frames.FrameRelationKind.acrossJoint :
-                        warnmsg = '''Found non-constant pose in the geometry model
-                        ('{0}' with respect to '{1}')'''.format(tgtF.name, refF.name)
-                        logger.warning( warnmsg )
-                # Rebuild the Pose instance with the frames from the frames
-                # model, which are attached to links. The pose instance from the
-                # motions model (posesModel) might only refer to named frames
-                realpose = Pose(target=tgtF, reference=refF)
-                realposespec = motions.PoseSpec(pose=realpose, motion=poseSpec.motion)
-                self.byPose[ realpose ] = realposespec
-                #print( realpose )
-                #print( poseSpec.motion.steps, "\n\n")
+
+                if framesModel.frameRole(refF) is not frames.FrameRole.linkRef:
+                    logger.warning( ("Ignoring pose ({}) whose reference frame "
+                                     "is not a link frame")
+                                    .format(pose))
+                elif tgtF.body != refF.body :
+                    logger.warning( ("Ignoring pose ({}) whose frames are not "
+                                     "attached to the same link").format(pose) )
+                else:
+                    # Rebuild the Pose instance with the frames from the frames
+                    # model, which are attached to links
+                    realpose = Pose(target=tgtF, reference=refF)
+                    realposespec = motions.PoseSpec(pose=realpose, motion=poseSpec.motion)
+                    self.byPose[ realpose ] = realposespec
+                    #print( realpose )
+                    #print( poseSpec.motion.steps, "\n\n")
 
         # We iterate over joints and fetch the predecessor, as the joint_wrt_predecessor
         # is a constant pose also for loop joints.
@@ -143,3 +147,27 @@ class Geometry:
     def jointAxes(self):
         return self.axes
 
+
+def getPoseSpec(geometryModel, frame):
+    '''
+    Retrive the pose specification of the given frame, from the given geometry
+    model.
+
+    Parameters:
+      - `geometryModel`: and instance of `Geometry`
+      - `frame`: a `kgprim.core.Attachment` instance, whose `entity` field
+        must be a `kgprim.core.Frame`. The `body` field should be a link of the
+        same robot as the one that the geometry model refers to.
+
+    Returns: the `kgprim.motions.PoseSpec` describing the pose of the given
+    frame, relative to the frame of the link it is attached to.
+
+    So for example, if the given `frame` is the elbow frame attached to the
+    forearm link of a humanoid robot, this function returns the pose of the
+    elbow frame relative to the forearm frame.
+    '''
+    pose = geometryModel.framesModel.poseRelativeToSupportingLinkFrame(frame)
+    if pose is not None :
+        if pose in geometryModel.byPose :
+            return geometryModel.byPose[ pose ]
+    return None

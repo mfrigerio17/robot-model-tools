@@ -45,7 +45,6 @@ jointTypeStr = {
 def __raise(name):
     raise RuntimeError("Cannot get the numeric value of parameter '{0}'".format(name))
 
-__currentParams = {}
 
 
 
@@ -86,9 +85,7 @@ def linkFrameToOtherFrameInKinDSL(refFrame):
     return motion__linkToJoint
 
 
-def convert(kindslFile, params={}):
-    global __currentParams
-    __currentParams = params
+def convert(kindslFile):
     robin = dsl.modelFromFile(kindslFile)
 
     links  = ODict()
@@ -145,15 +142,15 @@ def convert(kindslFile, params={}):
         joint = joints[ jointin.name ]
         link  = orderedModel.predecessor(joint)
 
-        frame_joint = framesModel.framesByName[ joint.name ]
-        frame_link  = framesModel.framesByName[ link.name  ]
+        frame_joint = framesModel.framesByName[ robmodel.frames.jointFrameName(orderedModel, joint) ]
+        frame_link  = framesModel.framesByName[ robmodel.frames.linkFrameName(orderedModel, link) ]
         pose = primitives.Pose(target=frame_joint, reference=frame_link)
         poses.append( PoseSpec(pose, motion_link_to_joint) )
 
     for linkin in allBodies :
         for fr in linkin.frames :
             motion_link_to_user = linkFrameToOtherFrameInKinDSL(fr.transform)
-            frame_link = framesModel.framesByName[ linkin.name ]
+            frame_link = framesModel.framesByName[ robmodel.frames.linkFrameName(orderedModel, linkin) ]
             frame_user = framesModel.framesByName[ fr.name ]
             pose       = primitives.Pose(target=frame_user, reference=frame_link)
             poses.append( PoseSpec(pose, motion_link_to_user) )
@@ -168,24 +165,27 @@ def convert(kindslFile, params={}):
 
     for linkin in inertiaBodies:
         ipin = linkin.bodyInertia
-        #TODO support the inertia properties in the user-frame
-        frame = framesModel.framesByName[ linkin.name ]
-        mass = exprValue(ipin.mass)
-        com = inertia.CoM(frame,
-                          x = exprValue(ipin.com.x),
-                          y = exprValue(ipin.com.y),
-                          z = exprValue(ipin.com.z))
-        im = inertia.IMoments(frame,
-                              ixx = exprValue(ipin.ixx),
-                              iyy = exprValue(ipin.iyy),
-                              izz = exprValue(ipin.izz),
-                              ixy = exprValue(ipin.ixy),
-                              ixz = exprValue(ipin.ixz),
-                              iyz = exprValue(ipin.iyz))
+        if ipin is not None:
+            #TODO support the inertia properties in the user-frame
+            frame = framesModel.framesByName[ robmodel.frames.linkFrameName(orderedModel, linkin) ]
+            mass = exprValue(ipin.mass)
+            com = inertia.CoM(frame,
+                              x = exprValue(ipin.com.x),
+                              y = exprValue(ipin.com.y),
+                              z = exprValue(ipin.com.z))
+            im = inertia.IMoments(frame,
+                                  ixx = exprValue(ipin.ixx),
+                                  iyy = exprValue(ipin.iyy),
+                                  izz = exprValue(ipin.izz),
+                                  ixy = exprValue(ipin.ixy),
+                                  ixz = exprValue(ipin.ixz),
+                                  iyz = exprValue(ipin.iyz))
 
-        inertiadict[linkin.name] = inertia.BodyInertia(mass, com, im)
+            inertiadict[linkin.name] = inertia.BodyInertia(mass, com, im)
 
-    inertiaModel = inertia.RobotLinksInertia(connectivityModel, framesModel, inertiadict)
+    inertiaModel = None
+    if len(inertiadict) > 0:
+        inertiaModel = inertia.RobotLinksInertia(connectivityModel, framesModel, inertiadict)
 
 
     return connectivityModel, orderedModel, framesModel, geometryModel, inertiaModel

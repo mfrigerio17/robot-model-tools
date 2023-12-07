@@ -4,7 +4,7 @@ import numpy
 import kgprim.motions as motions
 import kgprim.ct.frommotions as frommotions
 import kgprim.ct.repr.mxrepr as mxrepr
-import motiondsl.motiondsl as motdsl
+from kgprim.ct.metadata import TransformMetadata as TfMetadata
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,17 @@ class RobotKinematics:
 
 
 
-def base_H_ee(kinematics, framename):
+def base_H_ee(kinematics, framename, paramsValues={}):
+    '''
+    Arguments:
+      -
+      -
+      - paramsValues (optional): a dictionary with entries in the form
+        <parameter-name, parameter-value>, to resolve possible parameters in
+        the requested transform. Ignored for non-parametric transforms.
+        Missing values default to 0.
+    '''
+
     if framename not in kinematics.robotGeometry.framesModel.framesByName:
         logger.error("Could not find frame '{0}' in model '{1}'".format(framename, kinematics.robotGeometry.robotName))
         return None
@@ -41,13 +51,32 @@ def base_H_ee(kinematics, framename):
 
     poseSpec = kinematics.framesConnectivity.getPoseSpec(ee, kinematics.baseFrame)
     cotr = frommotions.toCoordinateTransform(poseSpec)
+    metad = TfMetadata(cotr)
     H = mxrepr.hCoordinatesSymbolic(cotr)
+
+    if len(paramsValues) == 0:
+        if metad.parametric:
+            logger.warning( ("The requested transform is parametric, "
+                             "but no parameter values were given") )
+    else:
+        if metad.parametric :
+            subs = {}
+            for p in metad.pars.keys():
+                subs[p] = 0.0
+                if p.name in paramsValues:
+                    subs[p] = paramsValues[p.name]
+                else:
+                    logger.warning("Missing value for parameter {}, defaulting to 0".format(p.name))
+            H.setParametersValue(subs)
+
     q = numpy.zeros( len(H.variables) )
     H = H.setVariablesValue( valueslist=q )
     return H
 
 
 def serializeToMotionDSLModel(robotKinematics, ostream):
+    import motiondsl.motiondsl as motdsl
+
     header ='''
 Model {modelname}
 

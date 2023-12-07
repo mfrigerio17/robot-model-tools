@@ -1,4 +1,4 @@
-import os, sys, logging, argparse
+import os, sys, logging, argparse, traceback
 import networkx as nx
 import numpy as np
 
@@ -8,6 +8,7 @@ import robmodel.inertia
 import robmodel.jposes
 
 import rmt.kinematics
+import kgprim.values
 
 log = logging.getLogger() # get the root logger, this is a command line app
 
@@ -26,8 +27,8 @@ def getmodels(filepath, paramsfilepath=None, floatLiteralsAsConstants=False):
             urdfwrap = urdfin.URDFWrapper(urdffile)
             connectivity, ordering, frames, geometry = urdfin.convert(urdfwrap)
         except Exception as e:
-            log.error("Failed to load URDF model: {0}".format(e))
-            urdffile.close()
+            log.error("Failed to load URDF model: {} - {}".format(e.__class__.__name__, e))
+            log.debug(traceback.format_exc(limit=-4))
             exit(-1)
         urdffile.close()
 
@@ -36,15 +37,11 @@ def getmodels(filepath, paramsfilepath=None, floatLiteralsAsConstants=False):
         try:
             import robmodel.convert.kindsl.imp as kindslin
         except ImportError as e:
-            log.error("KinDSL support not available!, are you perhaps missing textX in your Python environment?"+
-                      " The import error was: " + e.msg())
+            log.error("KinDSL support not available! " +
+                      "Perhaps you miss 'textX' in the Python environment? "+
+                      "The import error was: " + str(e))
             exit(-1)
-        params = {}
-        if paramsfilepath is not None:
-            istream = open(paramsfilepath)
-            params  = yaml.load(istream)
-            istream.close()
-        connectivity, ordering, frames, geometry, inertia = kindslin.convert(filepath, params)
+        connectivity, ordering, frames, geometry, inertia = kindslin.convert(filepath)
 
     elif ext == '.yaml' :
         import yaml
@@ -86,20 +83,31 @@ def getmodels(filepath, paramsfilepath=None, floatLiteralsAsConstants=False):
         log.error("Unknown robot model extension '{0}'".format(ext))
         exit(-1)
 
-    return connectivity, ordering, frames, geometry, inertia
+    params = {}
+    if paramsfilepath is not None:
+        _, ext = os.path.splitext(paramsfilepath)
+        if ext == '.yaml' :
+            import yaml
+            istream = open(paramsfilepath)
+            params  = yaml.safe_load(istream)
+            istream.close()
+        else:
+            log.warning("Unknown extension '{}' for the parameters file".format(ext))
+
+    return connectivity, ordering, frames, geometry, inertia, params
 
 def defpose(args):
-    robot,frames,geometry = getmodels(args.robot, args.params)[1:4]
+    robot,frames,geometry,_,paramsValues = getmodels(args.robot, args.params)[1:6]
     jointPoses = robmodel.jposes.JointPoses(robot, frames, geometry.jointAxes)
     kin = rmt.kinematics.RobotKinematics(geometry, jointPoses)
-    H = rmt.kinematics.base_H_ee(kin, args.frame)
+    H = rmt.kinematics.base_H_ee(kin, args.frame, paramsValues)
     if H is None :
         log.error("Could not compute the frame pose")
         exit(-1)
     print(np.round(H,5))
 
 def printinfo(args):
-    c,o,f,g,i = getmodels(args.robot)
+    c,o,f,g,i,_ = getmodels(args.robot)
     print(c,o,f,g,i)
 
 def writeDOTFile(args):
@@ -130,52 +138,73 @@ def writeMotDSLFile(args):
     if closeOstream :
         ostream.close()
 
+
+def _resolve_parameters(geometryModel, parametersValues):
+    # Replace the parameters in geometry model with constants with the given
+    # value. This allows the numerical evaluation of the geometry data, e.g.
+    # when exporting the model to a format that does not support parameters.
+    count = 0
+    for poseSpec in geometryModel.posesModel.poses:
+        for motionSeq in poseSpec.motion.sequences:
+            for step in motionSeq.steps:
+                if isinstance(step.amount, kgprim.values.Expression):
+                    if isinstance(step.amount.argument, kgprim.values.Parameter):
+                        val = step.amount.expr.subs(parametersValues) # SymPy subs()
+                        step.amount = kgprim.values.Expression( kgprim.values.Constant("c{}".format(count), val) )
+                        count = count + 1
+
 def export(args):
-    c,o,f,g,i = getmodels(args.robot)
+    c,o,f,g,i,params = getmodels(args.robot, args.params)
     oformat = args.oformat
+
     if oformat is None: oformat = 'yaml'
 
-    if oformat == 'yaml' :
-        log.error('Sorry, not implemented yet')
-        exit(-1)
-    elif oformat == 'kindsl' :
-        try:
-            import robmodel.convert.kindsl.exp as kindslout
-        except ImportError as e:
-            log.error("KinDSL support not available!, are you perhaps missing textX in your Python environment?"+
-                    " The import error was: " + e.msg())
+    try:
+        if oformat == 'yaml' :
+            log.error('Sorry, not implemented yet')
             exit(-1)
-        if g is not None:
-            text = kindslout.geometry(g)
+        elif oformat == 'kindsl' :
+            try:
+                import robmodel.convert.kindsl.exp as kindslout
+            except ImportError as e:
+                log.error("KinDSL support not available!, are you perhaps missing textX in your Python environment?"+
+                        " The import error was: " + e.msg())
+                exit(-1)
+            if g is not None:
+                text = kindslout.geometry(g)
+            else :
+                log.error("Sorry, I can export to KinDSL only a complete geometry model ")
+                exit(-1)
+        elif oformat == 'urdf' :
+            import robmodel.convert.urdf.exp as urdfout
+            if g is not None :
+                _resolve_parameters(g, params)
+                text = urdfout.geometry(g)
+            elif o is None:
+                log.error("Cannot export a URDF if the input model does not even include ordering")
+                exit(-1)
+            else :
+                text = urdfout.ordering(o)
         else :
-            log.error("Sorry, I can export to KinDSL only a complete geometry model ")
+            log.error("Unknown robot model format '{0}'".format(ext))
             exit(-1)
-    elif oformat == 'urdf' :
-        import robmodel.convert.urdf.exp as urdfout
-        if g is not None :
-            text = urdfout.geometry(g)
-        elif o is None:
-            log.error("Cannot export a URDF is the input model that does not even include ordering")
-            exit(-1)
-        else :
-            text = urdfout.ordering(o)
-    else :
-        log.error("Unknown robot model format '{0}'".format(ext))
+    except Exception as e:
+        log.error("Could not export the robot model: {}".format(e))
+        log.error(traceback.format_exc())
         exit(-1)
 
-    ostream = sys.stdout
-    closeOstream = False
-    outfile = args.outfile
-    if outfile is not None :
+
+    if args.outfile is not None :
         try:
-            ostream = open(outfile, 'w')
-            closeOstream = True
-        except IOError :
-            log.error("Could not open file '{0}'".format(outfile))
+            ostream = open(args.outfile, 'w')
+            ostream.write(text)
+            ostream.close()
+        except Exception as e :
+            log.error("Could not write to file '{0}': {1}".format(args.outfile, e))
             exit(-1)
-    ostream.write(text)
-    if closeOstream :
-        ostream.close()
+    else:
+        sys.stdout.write(text)
+        # do not close() sys.stdout :)
 
 def playground(args):
     inertia = getmodels(args.robot)[4]

@@ -9,6 +9,7 @@ import kgprim.ct.repr.mxrepr as mxrepr
 from robmodel.connectivity import JointKind
 from robmodel.treeutils import TreeUtils
 import robmodel.frames
+import robmodel.geometry
 
 logger = logging.getLogger(__name__)
 
@@ -71,12 +72,10 @@ def jointFrameParams(geometryModel, joint):
     poseSpec = geometryModel.byJoint[ joint ]
     return poseParams(poseSpec)
 
-def userFrameParams(geometryModel, framesModel, frame):
-    pose = framesModel.poseRelativeToSupportingLinkFrame(frame)
-    if pose is not None :
-        if pose in geometryModel.byPose :
-            poseSpec = geometryModel.byPose[ pose ]
-            return poseParams(poseSpec)
+def userFrameParams(geometryModel, frame):
+    poseSpec = robmodel.geometry.getPoseSpec(geometryModel, frame)
+    if poseSpec is not None :
+        return poseParams(poseSpec)
 
     logger.warning("Could not find pose information for frame '{f}'".format(f=frame.name))
     return 0,0,0,0,0,0
@@ -108,7 +107,7 @@ def geometry(geometryModel):
         jSection=jointSectionName,
         jointFrameParams=lambda j : jointFrameParams(geometryModel, j),
         linkUserFrames=lambda l : linkUserFrames(frames, l),
-        frameParams= lambda f : userFrameParams(geometryModel, frames, f),
+        frameParams= lambda f : userFrameParams(geometryModel, f),
         tostr=lambda num, isAngle=False: formatter.float2str(num, isAngle)
     )
 
