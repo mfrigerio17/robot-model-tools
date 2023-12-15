@@ -139,12 +139,12 @@ def writeMotDSLFile(args):
         ostream.close()
 
 
-def _resolve_parameters(geometryModel, parametersValues):
+def _resolve_parameters(poseSpecIterable, parametersValues):
     # Replace the parameters in geometry model with constants with the given
     # value. This allows the numerical evaluation of the geometry data, e.g.
     # when exporting the model to a format that does not support parameters.
     count = 0
-    for poseSpec in geometryModel.posesModel.poses:
+    for poseSpec in poseSpecIterable:
         for motionSeq in poseSpec.motion.sequences:
             for step in motionSeq.steps:
                 if isinstance(step.amount, kgprim.values.Expression):
@@ -178,8 +178,15 @@ def export(args):
         elif oformat == 'urdf' :
             import robmodel.convert.urdf.exp as urdfout
             if g is not None :
-                _resolve_parameters(g, params)
-                text = urdfout.geometry(g)
+                _resolve_parameters(g.posesModel.poses, params)
+                extraPoses = None
+                if args.extraposes is not None:
+                    import motiondsl.motiondsl as motdsl
+                    model = motdsl.dsl.modelFromFile(args.extraposes)
+                    poseSpecModel = motdsl.toPosesSpecification(model)
+                    _resolve_parameters(poseSpecModel.poses, params)
+                    extraPoses = poseSpecModel.poses
+                text = urdfout.geometry(g, userExtraPoses=extraPoses)
             elif o is None:
                 log.error("Cannot export a URDF if the input model does not even include ordering")
                 exit(-1)
@@ -250,6 +257,7 @@ def main():
     setRobotArgs(parser)
     parser.add_argument('-f', '--format',   dest='oformat', metavar='FMT', help='desired output format: {yaml,kindsl,urdf} (default: yaml)')
     parser.add_argument('-o', '--out-file', dest='outfile', metavar='FILE', help='the output file - defaults to stdout')
+    parser.add_argument('-e', '--extra-poses',  dest='extraposes', metavar='FILE', help='add extra dummy joints/links to the exported URDF, for each pose in the given MotionDSL document')
     parser.set_defaults(func=export)
 
     parser = subparsers.add_parser('debug')
