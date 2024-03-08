@@ -192,6 +192,14 @@ def export(args):
                 exit(-1)
             else :
                 text = urdfout.ordering(o)
+        elif oformat == 'coppelia':
+            import robmodel.convert.coppeliasim.exp as coppeliaout
+            if g is not None :
+                _resolve_parameters(g.posesModel.poses, params)
+                text = coppeliaout.code_creating_model(g)
+            else :
+                log.error("Sorry, I can generate Coppeliasim code only for a complete model (with geometry data)")
+                exit(-1)
         else :
             log.error("Unknown robot model format '{0}'".format(oformat))
             exit(-1)
@@ -255,7 +263,7 @@ def main():
 
     parser = subparsers.add_parser('exp', help='Export the input model to a different format (experimental - work in progress)')
     setRobotArgs(parser)
-    parser.add_argument('-f', '--format',   dest='oformat', metavar='FMT', help='desired output format: {yaml,kindsl,urdf} (default: yaml)')
+    parser.add_argument('-f', '--format',   dest='oformat', metavar='FMT', help='desired output format: {yaml,kindsl,urdf,coppelia} (default: yaml)')
     parser.add_argument('-o', '--out-file', dest='outfile', metavar='FILE', help='the output file - defaults to stdout')
     parser.add_argument('-e', '--extra-poses',  dest='extraposes', metavar='FILE', help='add extra dummy joints/links to the exported URDF, for each pose in the given MotionDSL document')
     parser.set_defaults(func=export)
