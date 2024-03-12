@@ -11,9 +11,19 @@ local sim = require('sim')
 
 local function create_model()
 
-local hl, hj, hm = nil
+local hl, hj, hm, hroot = nil
 
-local hroot = sim.getObject(".")  -- the object associated with this script
+hroot = sim.createPrimitiveShape(
+    sim.primitiveshape_capsule,
+    {0.05, 0.05, 0.1},
+    0)
+
+hl = hroot
+
+-- set it as model, model base, with all properties enabled
+sim.setModelProperty(hroot, 0)
+
+sim.setObjectAlias(hroot, "base")
 sim.setObjectInt32Param(hroot, sim.shapeintparam_static, 1)
 sim.setObjectInt32Param(hroot, sim.shapeintparam_respondable, 1)
 
@@ -23,7 +33,6 @@ hm = sim.importShape(0,
 sim.setObjectParent(hm, hroot, false)
 sim.setObjectAlias(hm, "base_mesh")
 
-hl = hroot
 
 % for joint in robot.joints.values() :
 
@@ -33,8 +42,16 @@ hj = sim.createJoint(
     0, nil)
 sim.setObjectInt32Param(hj, sim.jointintparam_dynctrlmode, sim.jointdynctrl_position)
 sim.setObjectAlias(hj, "${joint.name}")
+
+-- "connect" the joint with the predecessor link
 sim.setObjectParent(hj, hl)
 sim.setObjectMatrix(hj, ${jointPoseTable(joint)}, sim.handle_parent)
+
+-- despite the name, this really sets the maximum force, when in position control mode
+sim.setJointTargetForce(hj, 30)
+
+-- joints are not normally visible
+sim.setObjectInt32Param(hj, sim.objintparam_visibility_layer, 512)
 
 <% link = robot.successor(joint) %>
 
@@ -47,6 +64,7 @@ sim.setObjectParent(hl, hj);
 sim.setObjectMatrix(hl, {1,0,0,0,0,1,0,0,0,0,1,0}, sim.handle_parent)
 sim.setObjectInt32Param(hl, sim.shapeintparam_static, 0)      -- i.e. makes it dynamic...
 sim.setObjectInt32Param(hl, sim.shapeintparam_respondable, 1)
+sim.setObjectFloatParam(hl, sim.shapefloatparam_mass, 0.5)
 
 hm = sim.importShape(0,
     "${robot.name}/meshes/${link.name}.stl",
