@@ -1,4 +1,4 @@
-import os, logging, argparse
+import os, logging, argparse, pathlib
 import yaml
 
 import kgprim.core as gr
@@ -55,6 +55,10 @@ def main():
 
     istream = open(args.meshes)
     meshes  = yaml.safe_load(istream)
+    if meshes["name"] != robotGeometryModel.robotName :
+        logger.warning("Mismatch between the robot name and the name in the mesh paths file")
+    meshes = { name:pathlib.Path(meshes[name]) for name in meshes.keys() }
+
     istream.close()
     meshesPoses = None
     if args.mesh_transforms is not None :

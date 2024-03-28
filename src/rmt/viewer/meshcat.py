@@ -96,12 +96,22 @@ class MeshCatScene:
             self.linkByName[link.name] = mcatLink
 
             if link.name in meshesPath :
-                mesh = mcatLink["mesh"]
-                mesh.set_object(meshcatg.StlMeshGeometry.from_file( meshesPath[link.name] ))
+                meshobject = None
+                filepath = meshesPath[link.name]
+                if filepath.suffix == ".dae" :
+                    meshobject = meshcatg.DaeMeshGeometry.from_file( filepath )
+                elif filepath.suffix == ".stl" :
+                    meshobject = meshcatg.StlMeshGeometry.from_file( filepath )
+                else:
+                    logger.error("Unknown mesh file extension '%s' for link '%s'",
+                        filepath.suffix, link.name)
 
-                link_H_stl = link_H_mesh.get(link.name, np.identity(4))
-                mesh.set_transform( link_H_stl )
-                mcatLink.window.send( CustomCommand(mcatLink.path, "link-with-mesh") )
+                if meshobject is not None:
+                    mesh = mcatLink["mesh"]
+                    mesh.set_object(meshobject)
+                    link_H_stl = link_H_mesh.get(link.name, np.identity(4))
+                    mesh.set_transform( link_H_stl )
+                    mcatLink.window.send( CustomCommand(mcatLink.path, "link-with-mesh") )
             else :
                 logger.warning("Could not find mesh for link '{0}'".format(link.name))
 
