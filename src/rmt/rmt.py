@@ -193,7 +193,7 @@ def export(args):
             else :
                 text = urdfout.ordering(o)
         else :
-            log.error("Unknown robot model format '{0}'".format(ext))
+            log.error("Unknown robot model format '{0}'".format(oformat))
             exit(-1)
     except Exception as e:
         log.error("Could not export the robot model: {}".format(e))
