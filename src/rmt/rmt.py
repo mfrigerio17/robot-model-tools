@@ -201,7 +201,7 @@ def export(args):
                 log.error("Sorry, I can generate Coppeliasim code only for a complete model (with geometry data)")
                 exit(-1)
         else :
-            log.error("Unknown robot model format '{0}'".format(ext))
+            log.error("Unknown robot model format '{0}'".format(oformat))
             exit(-1)
     except Exception as e:
         log.error("Could not export the robot model: {}".format(e))
