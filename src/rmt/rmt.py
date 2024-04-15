@@ -195,7 +195,7 @@ def export(args):
         elif oformat == 'coppelia':
             import robmodel.convert.coppeliasim.exp as coppeliaout
             if g is not None :
-                _resolve_parameters(g, params)
+                _resolve_parameters(g.posesModel.poses, params)
                 text = coppeliaout.code_creating_model(g)
             else :
                 log.error("Sorry, I can generate Coppeliasim code only for a complete model (with geometry data)")
