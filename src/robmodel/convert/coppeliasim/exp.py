@@ -147,12 +147,12 @@ local function get_handles()
         },
         joints = {
 % for joint in robot.joints.values() :
-            ${joint.name} = sim.getObject("./${joint.name}"),
+            ${joint.name} = sim.getObject("/${joint.name}"),
 % endfor
         },
         ijoints = {
 % for joint in robot.joints.values() :
-            [${robot.jointNum(joint)}] = sim.getObject("./${joint.name}"),
+            [${robot.jointNum(joint)}] = sim.getObject("/${joint.name}"),
 % endfor
         },
     }
