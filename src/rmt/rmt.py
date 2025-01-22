@@ -125,7 +125,7 @@ def writeMotDSLFile(args):
     closeOstream = False
     if args.outmotdsl is not None :
         try:
-            ostream = open(args.outmotdsl, 'w')
+            ostream = open(args.outmotdsl, mode='w', encoding='utf-8', newline='\n')
             closeOstream = True
         except IOError :
             log.warning("Could not open file '{0}'".format(args.outmotdsl))
@@ -203,7 +203,7 @@ def export(args):
 
     if args.outfile is not None :
         try:
-            ostream = open(args.outfile, 'w')
+            ostream = open(args.outfile,  mode='w', encoding='utf-8', newline='\n')
             ostream.write(text)
             ostream.close()
         except Exception as e :
