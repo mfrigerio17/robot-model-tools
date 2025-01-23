@@ -243,7 +243,7 @@ def main():
     setRobotArgs(parser)
     parser.set_defaults(func=printinfo)
 
-    parser = subparsers.add_parser('dot', help='Generate the DOT file representing the connectivity graph of the robot model')
+    parser = subparsers.add_parser('dot', help='Generate the connectivity graph of the robot model in DOT format (requires pygraphviz)')
     setRobotArgs(parser)
     parser.add_argument('-o', '--out-file', dest='outdot', metavar='FILE', default='robot.dot', help='the output .dot file')
     parser.set_defaults(func=writeDOTFile)

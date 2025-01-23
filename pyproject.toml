@@ -17,7 +17,6 @@ dependencies = [
     'networkx',
     'numpy',
     'pyyaml',
-    'pygraphviz',
     'textX',
     'mako'
 ]
@@ -33,3 +32,7 @@ package-dir = {"" = "src"}
 [tool.setuptools.package-data]
 # include the textX grammar
 "robmodel.convert.kindsl" = ["*.tx"]
+
+
+[project.optional-dependencies]
+dot = ['pygraphviz']
