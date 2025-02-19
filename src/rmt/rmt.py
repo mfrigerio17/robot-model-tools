@@ -154,8 +154,12 @@ def _resolve_parameters(poseSpecIterable, parametersValues):
             for step in motionSeq.steps:
                 if isinstance(step.amount, kgprim.values.Expression):
                     if isinstance(step.amount.argument, kgprim.values.Parameter):
-                        val = step.amount.expr.subs(parametersValues) # SymPy subs()
-                        step.amount = kgprim.values.Expression( kgprim.values.Constant("c{}".format(count), val) )
+                        pname = step.amount.argument.name
+                        if pname not in parametersValues:
+                            log.error("No value available for parameter '{}'".format(pname))
+                        else:
+                            val = step.amount.expr.subs(parametersValues) # SymPy subs()
+                            step.amount = kgprim.values.Expression( kgprim.values.Constant("c{}".format(count), val) )
                         count = count + 1
 
 def export(args):
