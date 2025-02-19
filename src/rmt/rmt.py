@@ -41,7 +41,12 @@ def getmodels(filepath, paramsfilepath=None, floatLiteralsAsConstants=False):
                       "Perhaps you miss 'textX' in the Python environment? "+
                       "The import error was: " + str(e))
             exit(-1)
-        connectivity, ordering, frames, geometry, inertia = kindslin.convert(filepath)
+        try:
+            connectivity, ordering, frames, geometry, inertia = kindslin.convert(filepath)
+        except Exception as e:
+            log.error("Failed to load KinDSL model: {}".format(str(e)))
+            log.debug(traceback.format_exc(limit=-4))
+            exit(-1)
 
     elif ext == '.yaml' :
         import yaml
