@@ -169,6 +169,7 @@ class RobotDefaultFrames():
             self.jointFrames[ joint ] = jf1
 
         for userFrame in self.userAttachedFrames :
+            userFrame.attrs['role'] = FrameRole.user
             graph.add_node( userFrame )
             link = userFrame.body  # a property of primitives.Attachment
             graph.add_edge( self.linkFrames[link], userFrame, kind=FrameRelationKind.generic )
