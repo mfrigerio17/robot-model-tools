@@ -22,8 +22,14 @@ class FloatsFormatter :
 
         num = round(num, self.round_decimals)
         num += 0  # this trick avoids the annoying '-0.0' (minus zero)
-        # rstrip remove the trailing zeros, if any
-        return( ( "{" + self.formatStr + "}" ).format( num ).rstrip('0') )
+
+        # 'rstrip' removes trailing zeros, if any.
+        ret = ("{" + self.formatStr + "}" ).format( num ).rstrip('0')
+        # but I do want at least one of them, for integers, so that it will
+        #  always look like a float also to limited parsers ('N.' --> 'N.0')
+        if ret.endswith('.'):
+            ret = ret + '0'
+        return ret
 
 
 
