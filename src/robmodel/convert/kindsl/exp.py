@@ -23,6 +23,14 @@ Robot ${robot.name}
     link ${link.name} {
         id = ${robot.linkNum(link)}
 % endif
+% if inertia is not None :
+<% m,x,y,z,ix,iy,iz,ixy,ixz,iyz = linkInertia(link) %>
+        inertia_properties {
+            mass = ${tostr(m)}
+            CoM  = (${tostr(x)}, ${tostr(y)}, ${tostr(z)})
+            Ix=${tostr(ix)}  Iy=${tostr(iy)}  Iz=${tostr(iz)}  Ixy=${tostr(ixy)}  Ixz=${tostr(ixz)}  Iyz=${tostr(iyz)}
+        }
+% endif
         children {
         % for child in tree.children(link):
             ${child.name} via ${robot.linkPairToJoint(link, child).name}
@@ -41,6 +49,7 @@ Robot ${robot.name}
         }
         % endif
     }
+
 % endfor
 
 
@@ -105,19 +114,75 @@ def linkUserFrames(framesModel, link):
             ret.append(uf)
     return ret
 
-def geometry(geometryModel):
+def inertiaProperties(geometryModel, inertiaModel, link) :
+
+    props = inertiaModel.byLink(link)
+    if props is None :
+        logger.warning("Missing inertia properties for link '%s'", link.name)
+        return (1, 0.1, 0.1, 0.1, 1, 1, 1, 0, 0, 0)
+
+    # we are optimistic, no conversions needed by default
+    com     = (props.com.x, props.com.y, props.com.z, 1)
+    moments = props.moments
+
+    frame_com  = props.com.frame
+    frame_moms = props.moments.frame
+    frame_link = geometryModel.framesModel.byLink[link]
+    link_TR_comfr = None
+    link_H_comfr  = None
+
+    if frame_com != frame_link :
+        link_TR_comfr = robmodel.geometry.getPoseSpec(geometryModel, frame_com)
+        if link_TR_comfr is None:
+            logger.error("Cannot find the pose of the CoM-frame '{}' relative to the frame of link '{}', for the input model '{}'"
+                              .format(frame_com, link, geometryModel.robotName))
+            raise RuntimeError("KinDSL export: failed to convert a CoM")
+        link_CT_comfr = ct.frommotions.toCoordinateTransform  ( link_TR_comfr, right_frame=frame_com )
+        link_H_comfr  = mxrepr.hCoordinatesNumeric.matrix_repr( link_CT_comfr )
+        com = link_H_comfr @ com
+
+    if  frame_moms != frame_link :
+        pose_of_moments_frame = robmodel.geometry.getPoseSpec(geometryModel, frame_moms)
+        if pose_of_moments_frame is None:
+            logger.error("Cannot find the pose of frame '{}' relative to the frame of link '{}', for the input model '{}'"
+                .format(frame_moms, link, geometryModel.robotName))
+            raise RuntimeError("KinDSL export: failed to convert inertia moments")
+        moms_CT_link = ct.frommotions.toCoordinateTransform(pose_of_moments_frame, right_frame=frame_link)
+        moms_H_link  = mxrepr.hCoordinatesNumeric.matrix_repr(moms_CT_link)
+
+        # the CoM relative to the moments frame
+        com_moms = moms_H_link @ com
+
+        # the origin of the link frame in the moments frame
+        origin_moms = moms_H_link[0:3,3]
+
+        moments = utils.rotoTranslateInertiaMoments(props.moments, props.mass, com_moms, origin_moms, moms_H_link[0:3,0:3] )
+
+
+    return (props.mass, com[0], com[1], com[2],
+        moments.ixx,
+        moments.iyy,
+        moments.izz,
+        moments.ixy,
+        moments.ixz,
+        moments.iyz)
+
+def modelText(geometryModel, inertiaModel=None):
     connect= geometryModel.connectivityModel
     frames = geometryModel.framesModel
     formatter = utils.FloatsFormatter(pi_string="PI")
     tree = TreeUtils(connect)
+
     return tpl.render(
         robot=connect,
         tree=tree,
+        inertia=inertiaModel,
         jSection=jointSectionName,
         jIsSupported=__isSupported,
         jointFrameParams=lambda j : jointFrameParams(geometryModel, j),
         linkUserFrames=lambda l : linkUserFrames(frames, l),
         frameParams= lambda f : userFrameParams(geometryModel, f),
+        linkInertia= lambda link : inertiaProperties(geometryModel, inertiaModel, link),
         tostr=lambda num, isAngle=False: formatter.float2str(num, isAngle)
     )
 

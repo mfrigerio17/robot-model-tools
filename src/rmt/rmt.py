@@ -195,7 +195,7 @@ def export(args):
                         " The import error was: " + e.msg())
                 exit(-1)
             if g is not None:
-                text = kindslout.geometry(g)
+                text = kindslout.modelText(g,i)
             else :
                 log.error("Sorry, I can export to KinDSL only a complete geometry model ")
                 exit(-1)
