@@ -163,7 +163,7 @@ def _resolve_parameters(poseSpecIterable, parametersValues):
                         count = count + 1
 
 def export(args):
-    c,o,f,g,i,params = getmodels(args.robot, args.params)
+    c,o,f,g,i,params = getmodels(args.robot, args.params)[0:6]
     oformat = args.oformat
 
     if oformat is None: oformat = 'yaml'
