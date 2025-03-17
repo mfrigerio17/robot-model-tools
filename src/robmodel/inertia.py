@@ -63,6 +63,12 @@ class RobotLinksInertia:
                 logger.warning("Inertia given for link '{l}', which does not appear in the robot model '{r}'".format(l=linkName, r=robotConnectivity.name))
 
 
+    def byLink(self, link):
+        return self.inertia.get(link.name)
+
+    def byLinkName(self, name):
+        return self.inertia.get(name)
+
     def _checkGivenInertia(self, inip):
         com = inip.com.copy()    # a shallow copy
         im  = inip.moments.copy()
@@ -94,7 +100,4 @@ class RobotLinksInertia:
             else :
                 logger.error("The given argument is not a link frame of robot '{r}'".format(self.robot.name))
         return None
-
-
-
 
