@@ -1,4 +1,5 @@
 import logging
+import numpy as np
 from mako.template import Template
 
 import robmodel.convert.utils as utils
@@ -20,10 +21,23 @@ logger = logging.getLogger(__name__)
 
 tpl = Template('''
 <robot name="${robot.name}">
-%for link in robot.links.values():
+%if inertia is not None :
+    %for link in robot.links.values():
+<% m,cx,cy,cz,r,p,y,ixx,iyy,izz,ixy,ixz,iyz = linkInertia(link) %>
+    <link name="${link.name}">
+        <inertial>
+            <origin xyz="${tostr(cx)} ${tostr(cy)} ${tostr(cz)}" rpy="${tostr(r)} ${tostr(p)} ${tostr(y)}"/>
+            <mass value="${tostr(m)}"/>
+            <inertia ixx="${tostr(ixx)}"  ixy="${tostr(ixy)}"  ixz="${tostr(ixz)}" iyy="${tostr(iyy)}" iyz="${tostr(iyz)}" izz="${tostr(izz)}" />
+        </inertial>
+    </link>
+    %endfor
+%else :
+    %for link in robot.links.values():
     <link name="${link.name}">
     </link>
-%endfor
+    %endfor
+%endif
 
 %if geometry is not None :
 <% dummyLinks = set() %>
@@ -122,6 +136,56 @@ def jointOrigin(**kwargs):
     return _poseSpecToURDFJointParamters(poseSpec)
 
 
+def linkInertia(geometryModel, inertiaModel, link):
+    props_in = inertiaModel.byLink(link)
+    if props_in is None :
+        return 0, 0,0,0, 0,0,0, 0,0,0,0,0,0
+
+    com = np.array((props_in.com.x, props_in.com.y, props_in.com.z, 1))
+    rpy = (0.0,0.0,0.0)
+
+    # Check if the CoM coordinates are not link-frame coordinates.
+    # If not, we perform the roto-translation.
+    # The URDF wants the CoM in link-frame coordinates.
+    frame_com = props_in.com.frame
+    if frame_com.body  != link:
+        link_TR_comfr = robmodel.geometry.getPoseSpec(geometryModel, frame_com)
+        if link_TR_comfr is None:
+            logger.error("Could not retrieve the pose of the source CoM frame '{}' relative to the frame of link '{}'"
+                .format(frame_com, link))
+            raise RuntimeError("URDF export: failed to convert a CoM")
+        link_CT_comfr = ct.frommotions.toCoordinateTransform( link_TR_comfr )
+        link_H_comfr  = mxrepr.hCoordinatesNumeric.matrix_repr( link_CT_comfr )
+        com = np.matmult(link_H_comfr, com)
+
+    # Similarly for the inertia moments.
+    # If a custom frame is used for the source data, use its orientation to
+    # determine the 'rpy' attribute in the URDF. There is no need to rotate the
+    # inertia moments.
+    # In general, though, we need to translate them because the URDF wants them
+    # in a frame with origin at the CoM.
+    com__tr_moments = com[0:3] # default translation vector for the inertia moments
+    frame_moments = props_in.moments.frame
+    if frame_moments.body != link:
+        link_TR_momentsfr = robmodel.geometry.getPoseSpec(geometryModel, frame_moments)
+        if link_TR_momentsfr is None:
+            logger.error("Could not retrieve the pose of the source inertia moments frame '{}' relative to the frame of link '{}'"
+                .format(frame_com, link))
+            raise RuntimeError("URDF export: failed to convert inertia moments")
+        link_CT_momentsfr = ct.frommotions.toCoordinateTransform(link_TR_momentsfr)
+        link_H_momentsfr  = mxrepr.hCoordinatesNumeric.matrix_repr(link_CT_momentsfr)
+        irx,iry,irz = utils.getIntrinsicXYZFromR(link_H_momentsfr)
+        rpy         = utils.intrinsic2extrinsic_XYZ(irx, iry, irz)
+
+        momentsfr_CT_link = ct.frommotions.toCoordinateTransform(link_TR_momentsfr, rigth_frame=geometryModel.framesModel.linkFrame[link])
+        momentsfr_H_link  = mxrepr.hCoordinatesNumeric.matrix_repr(momentsfr_CT_link)
+        com__tr_moments = momentsfr_H_link @ com
+
+    moments = utils.translateInertiaMoments(props_in.moments, props_in.mass, com__tr_moments)
+
+    return( props_in.mass, com[0], com[1], com[2], rpy[0], rpy[1], rpy[2], moments.ixx, moments.iyy, moments.izz, -moments.ixy, -moments.ixz, -moments.iyz)
+
+
 def ordering(orderingModel):
     logger.warn("Generated joint limits are arbitrary")
     formatter = utils.FloatsFormatter()
@@ -133,14 +197,16 @@ def ordering(orderingModel):
         tostr=lambda num: formatter.float2str(num)
     )
 
-def geometry(geometryModel, userExtraPoses=None):
+def modelText(geometryModel, inertiaModel=None, userExtraPoses=None):
     logger.warn("Generated joint limits are arbitrary")
     formatter = utils.FloatsFormatter()
     return tpl.render(
         robot=geometryModel.connectivityModel,
         geometry=geometryModel,
+        inertia=inertiaModel,
         extraPoses=userExtraPoses,
         jointParams=jointOrigin,
         jointKind = jointKind,
-        tostr=lambda num: formatter.float2str(num)
+        linkInertia = lambda link: linkInertia(geometryModel, inertiaModel, link),
+        tostr       = lambda num: formatter.float2str(num),
     )

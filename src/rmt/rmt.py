@@ -195,7 +195,7 @@ def export(args):
                     poseSpecModel = motdsl.toPosesSpecification(model)
                     _resolve_parameters(poseSpecModel.poses, params)
                     extraPoses = poseSpecModel.poses
-                text = urdfout.geometry(g, userExtraPoses=extraPoses)
+                text = urdfout.modelText(g, i, userExtraPoses=extraPoses)
             elif o is None:
                 log.error("Cannot export a URDF if the input model does not even include ordering")
                 exit(-1)
