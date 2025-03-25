@@ -1,4 +1,6 @@
 import math
+import numpy as np
+import robmodel.inertia
 
 class FloatsFormatter :
     def __init__(self, round_digits=6, pi_round_digits=5, pi_string="pi"):
@@ -57,3 +59,39 @@ def intrinsic2extrinsic_XYZ(irx, iry, irz):
     erz = math.atan2(cx*sz+sx*sy*cz, cy*cz)
 
     return erx, ery, erz
+
+
+def translateInertiaMoments(inertiaMoments, mass, tr_com, tr=None):
+    ixx = inertiaMoments.ixx
+    iyy = inertiaMoments.iyy
+    izz = inertiaMoments.izz
+    ixy = inertiaMoments.ixy
+    ixz = inertiaMoments.ixz
+    iyz = inertiaMoments.iyz
+    tensor = np.array( [[ ixx, -ixy, -ixz],
+                        [-ixy,  iyy, -iyz],
+                        [-ixy, -iyz,  izz] ])
+
+    com_x = __cross_mx(tr_com)
+    if tr is None:
+        tensor = tensor - mass * np.matmul(com_x, com_x.T)
+    else:
+        vec_x = __cross_mx(tr)
+        tensor = tensor - mass * (np.matmul(com_x, com_x.T) - np.matmul(vec_x, vec_x.T))
+
+    ret = robmodel.inertia.IMoments(frame=None)
+    ret.ixx =  tensor[0,0]
+    ret.iyy =  tensor[1,1]
+    ret.izz =  tensor[2,2]
+    ret.ixy = -tensor[0,1]
+    ret.ixz = -tensor[0,2]
+    ret.iyz = -tensor[1,2]
+    return ret
+
+
+
+def __cross_mx(r) :
+    return np.array(
+        [[ 0   , -r[2],  r[1] ],
+         [ r[2],   0  , -r[0] ],
+         [-r[1],  r[0],    0  ]] )
