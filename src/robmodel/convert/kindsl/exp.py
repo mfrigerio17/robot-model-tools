@@ -45,6 +45,7 @@ Robot ${robot.name}
 
 
 % for joint in robot.joints.values() :
+% if jIsSupported(joint) :
 <% x,y,z,rx,ry,rz = jointFrameParams(joint) %>
     ${jSection(joint)} ${joint.name} {
         ref_frame {
@@ -52,7 +53,9 @@ Robot ${robot.name}
             rotation    = (${tostr(rx, True)}, ${tostr(ry, True)}, ${tostr(rz, True)})
         }
     }
-
+% else :
+// WARNING: unsupported joint type for '${joint.name}'
+% endif
 % endfor
 
 }
@@ -64,6 +67,12 @@ __joint_section = {
     JointKind.prismatic : "p_joint",
     JointKind.revolute  : "r_joint"
 }
+
+def __isSupported(joint):
+    ret = joint.kind in __joint_section
+    if not ret:
+        logger.warning("Unsupported joint kind '{}' for joint '{}'".format(joint.kind, joint.name))
+    return ret
 
 def jointSectionName(joint):
     return __joint_section[ joint.kind ]
@@ -105,6 +114,7 @@ def geometry(geometryModel):
         robot=connect,
         tree=tree,
         jSection=jointSectionName,
+        jIsSupported=__isSupported,
         jointFrameParams=lambda j : jointFrameParams(geometryModel, j),
         linkUserFrames=lambda l : linkUserFrames(frames, l),
         frameParams= lambda f : userFrameParams(geometryModel, f),
