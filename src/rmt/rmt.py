@@ -42,7 +42,7 @@ def getmodels(filepath, paramsfilepath=None, floatLiteralsAsConstants=False):
                       "The import error was: " + str(e))
             exit(-1)
         try:
-            connectivity, ordering, frames, geometry, inertia = kindslin.convert(filepath)
+            connectivity, ordering, frames, geometry, inertia = kindslin.convert(filepath, floatLiteralsAsConstants)
         except Exception as e:
             log.error("Failed to load KinDSL model: {}".format(str(e)))
             log.debug(traceback.format_exc(limit=-4))
@@ -223,9 +223,15 @@ def export(args):
         # do not close() sys.stdout :)
 
 def playground(args):
-    inertia = getmodels(args.robot)[4]
-    for link in inertia.inertia :
-        print(inertia.inertia[link])
+    c,o,f,geometry,inertia,params = getmodels(args.robot, args.params, True)[0:6]
+    for link in c.links.values() :
+        ip = inertia.byLink(link)
+        if ip is not None:
+            print(ip.mass)
+
+    for pose in geometry.posesModel.poses :
+        for m in pose.motion.steps:
+            print(m)
 
 
 def setRobotArgs(argparser):
