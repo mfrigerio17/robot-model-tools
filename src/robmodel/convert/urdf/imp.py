@@ -202,8 +202,12 @@ def convert( urdf ) :
         urdfjoint = urdf.joints[jname]
         name      = toValidID( jname )
         jkind     = urdfjoint.type
-        if jkind in JointKind.__members__.keys() :
-            jkind = JointKind[jkind] # otherwise, it stays a string (like 'fixed')
+        if jkind in JointKind :
+            jkind = JointKind[jkind]
+        else :
+            # 'jkind' remains a string
+            logger.warning("Unknown joint type '{}' for joint '{}'".format(jkind, jname))
+
         joint     = robmodel.connectivity.Joint(name, jkind)
         parent    = links[ toValidID(urdfjoint.parent) ]
         child     = links[ toValidID(urdfjoint.child)  ]
@@ -222,15 +226,25 @@ def convert( urdf ) :
     # associate code to each link via a Depth-First-Traversal
     code = 0
     numbering = {}
-    def setCode(currentLink):
-        nonlocal code, numbering
+    fixedLinks = []
+    def setCode(currentLink, parent):
+        nonlocal code, numbering, fixedLinks
         if currentLink == None : return
-        numbering[currentLink.name] = code
-        for child in children[currentLink.name] :
-            code = code + 1
-            setCode( child )
 
-    setCode( robotBase )
+        joint = connectivityModel.linkPairToJoint(currentLink, parent)
+        if joint is not None and joint.kind == JointKind.fixed :
+            fixedLinks.append(currentLink)
+        else:
+            numbering[currentLink.name] = code
+            code = code + 1
+        for child in children[currentLink.name] :
+            setCode( child, currentLink )
+
+    setCode( robotBase, None)
+    for fl in fixedLinks :
+        numbering[fl.name] = code
+        code = code + 1
+
     ordering = { 'robot': robotName, 'nums' : numbering }
     orderedModel = robmodel.ordering.Robot(connectivityModel, ordering)
 

@@ -35,6 +35,7 @@ class Joint:
 class JointKind(enum.Enum):
     prismatic="prismatic"
     revolute ="revolute"
+    fixed="fixed"
 
 class Link(gr.RigidBody):
     '''

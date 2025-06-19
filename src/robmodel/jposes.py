@@ -70,7 +70,7 @@ class JointPoses:
             qexpr= numeric_argument.Expression(argument=qvar)
             motionSteps = None
             motionF    = None
-            if joint.kind == 'fixed' :
+            if joint.kind == JointKind.fixed :
                 # aribtrary motion step of 0 value
                 motionSteps = [motions.translation(motions.Axis.Z, 0.0)]
             else :
