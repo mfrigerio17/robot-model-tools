@@ -33,7 +33,7 @@ class Joint:
         return self.name
 
 class JointKind(enum.Enum):
-    prismatic="prismatic",
+    prismatic="prismatic"
     revolute ="revolute"
 
 class Link(gr.RigidBody):
