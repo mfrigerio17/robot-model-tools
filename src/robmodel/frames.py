@@ -189,3 +189,18 @@ class RobotDefaultFrames():
         aframe = primitives.Attachment( primitives.Frame(fName), link )
         aframe.attrs['role'] = FrameRole.joint
         return aframe
+
+    @property
+    def byLink(self):
+        '''A dictionary mapping a Link to its attached Frame'''
+        return self.linkFrames
+
+    @property
+    def byJoint(self):
+        '''A dictionary mapping a Joint to its attached Frame'''
+        return self.jointFrames
+
+    @property
+    def byName(self):
+        '''A dictionary mapping the Frame name to the actual Frame'''
+        return self.framesByName
