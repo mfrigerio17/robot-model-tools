@@ -195,6 +195,10 @@ def export(args):
                         " The import error was: " + e.msg())
                 exit(-1)
             if g is not None:
+                if params is not None:
+                    # if parameter values were given, we assume the user wants
+                    # to resolve parametrization
+                    _resolve_parameters(g.posesModel.poses, params)
                 text = kindslout.modelText(g,i)
             else :
                 log.error("Sorry, I can export to KinDSL only a complete geometry model ")
