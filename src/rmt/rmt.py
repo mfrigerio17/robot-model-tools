@@ -1,4 +1,5 @@
 import os, sys, logging, argparse, traceback
+import pathlib
 import networkx as nx
 import numpy as np
 
@@ -90,12 +91,16 @@ def getmodels(filepath, paramsfilepath=None, floatLiteralsAsConstants=False):
 
     params = {}
     if paramsfilepath is not None:
-        _, ext = os.path.splitext(paramsfilepath)
+        fpath = pathlib.Path(paramsfilepath)
+        ext = fpath.suffix
         if ext == '.yaml' :
             import yaml
-            istream = open(paramsfilepath)
-            params  = yaml.safe_load(istream)
-            istream.close()
+            with open(fpath) as istream:
+                params = yaml.safe_load(istream)
+        elif ext == '.json' :
+            import json
+            with open(fpath) as istream:
+                params = json.load(istream)
         else:
             log.warning("Unknown extension '{}' for the parameters file".format(ext))
 
@@ -236,7 +241,7 @@ def playground(args):
 
 def setRobotArgs(argparser):
     argparser.add_argument('robot', metavar='robot-model', help='the robot model input file')
-    argparser.add_argument('-p', '--params', dest='params', metavar='params-file', default=None, help='YAML file with default parameter values')
+    argparser.add_argument('-p', '--params', dest='params', metavar='params-file', default=None, help='YAML/JSON file with default parameter values')
 
 def main():
     formatter = logging.Formatter('%(levelname)s (%(name)s) : %(message)s')
