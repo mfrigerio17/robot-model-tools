@@ -158,7 +158,7 @@ def _resolve_parameters(poseSpecIterable, parametersValues):
                         if pname not in parametersValues:
                             log.error("No value available for parameter '{}'".format(pname))
                         else:
-                            val = step.amount.expr.subs(parametersValues) # SymPy subs()
+                            val = step.amount.expr.subs({pname:parametersValues[pname]}) # SymPy subs()
                             step.amount = kgprim.values.Expression( kgprim.values.Constant("c{}".format(count), val) )
                         count = count + 1
 
