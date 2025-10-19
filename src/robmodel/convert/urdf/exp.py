@@ -1,9 +1,11 @@
 import logging
 import numpy as np
+import dataclasses
 from mako.template import Template
 
 import robmodel.convert.utils as utils
 import robmodel.geometry
+import robmodel.jlimits
 
 import kgprim.ct as ct
 import kgprim.ct.repr.mxrepr as mxrepr
@@ -79,6 +81,7 @@ tpl = Template('''
 
 %for joint in robot.joints.values():
     <joint name="${joint.name}" type="${jointKind(joint)}">
+<% jlim = jlimits.byJoint[joint] %>
 %if geometry is not None :
 <% x,y,z,rx,ry,rz = jointParams(geometryModel=geometry, joint=joint) %>
         <origin xyz="${tostr(x)} ${tostr(y)} ${tostr(z)}" rpy="${tostr(rx)} ${tostr(ry)} ${tostr(rz)}"/>
@@ -87,7 +90,7 @@ tpl = Template('''
 %endif
         <parent link="${robot.predecessor(joint).name}"/>
         <child  link="${robot.successor  (joint).name}"/>
-        <limit effort="30" velocity="10.0" lower="-3.14" upper="3.14" />
+        <limit effort="${jlim.force}" velocity="${jlim.velocity}" lower="${jlim.lower_pos}" upper="${jlim.upper_pos}" />
     </joint>
 
 % endfor
@@ -197,13 +200,19 @@ def ordering(orderingModel):
         tostr=lambda num: formatter.float2str(num)
     )
 
-def modelText(geometryModel, inertiaModel=None, userExtraPoses=None):
-    logger.warn("Generated joint limits are arbitrary")
+def modelText(geometryModel, inertiaModel=None, userExtraPoses=None, jointLimits=None):
+    if jointLimits is None:
+        logger.warn("generated joint limits are arbitrary")
+        limits = {joint : dataclasses.asdict(robmodel.jlimits.JointLimit())
+                     for joint in geometryModel.connectivityModel.joints.keys()}
+        jointLimits = robmodel.jlimits.JointLimits(geometryModel.connectivityModel, limits)
+
     formatter = utils.FloatsFormatter()
     return tpl.render(
         robot=geometryModel.connectivityModel,
         geometry=geometryModel,
         inertia=inertiaModel,
+        jlimits=jointLimits,
         extraPoses=userExtraPoses,
         jointParams=jointOrigin,
         jointKind = jointKind,

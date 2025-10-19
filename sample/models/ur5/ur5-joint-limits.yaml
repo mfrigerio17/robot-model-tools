@@ -1,0 +1,31 @@
+robot: ur5
+
+# note these limits are arbitrary, they do not reflect the actual robot
+
+limits:
+    shoulder_pan:
+        lower_pos: -0.1
+        upper_pos: 0.1
+        velocity: 0
+        force: 0
+
+    shoulder_lift:
+        lower_pos: -0.1
+        upper_pos: 0.1
+        # velocity and force are optional
+
+    elbow:
+        lower_pos: -0.1
+        upper_pos: 0.1
+
+    wr1:
+        lower_pos: -0.1
+        upper_pos: 0.1
+
+    wr2:
+        lower_pos: -0.1
+        upper_pos: 0.1
+
+    wr3:
+        lower_pos: -0.1
+        upper_pos: 0.1

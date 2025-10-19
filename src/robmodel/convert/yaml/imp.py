@@ -101,6 +101,9 @@ def geometry(istream, floatLiteralsAsConstants=False) :
     return PosesSpec(**out)
 
 
+def joint_limits(istream):
+    return yaml.safe_load(istream)
+
 
 def _getPropertyValue(yamlvalue, floatLiteralsAsConstants=False):
     ret = yamlvalue

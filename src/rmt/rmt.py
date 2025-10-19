@@ -7,19 +7,22 @@ import robmodel.convert.urdf.imp as urdfin
 
 import robmodel.inertia
 import robmodel.jposes
+import robmodel.jlimits
 
+import rmt.load
 import rmt.kinematics
 import kgprim.values
 
 log = logging.getLogger() # get the root logger, this is a command line app
 
 
-def getmodels(filepath, paramsfilepath=None, floatLiteralsAsConstants=False):
+def getmodels(filepath, paramsFilePath=None, jlimsFilePath=None, floatLiteralsAsConstants=False):
     connectivity = None
     ordering     = None
     frames       = None
     geometry     = None
     inertia      = None
+    jlimits      = None
     _, ext = os.path.splitext(filepath)
     if ext == '.urdf' :
         log.debug("URDF format detected for file " + filepath)
@@ -84,14 +87,16 @@ def getmodels(filepath, paramsfilepath=None, floatLiteralsAsConstants=False):
                 if inertia_data == None :
                     raise RuntimeError("Could not load inertia data")
                 inertia = robmodel.inertia.RobotLinksInertia(connectivity, frames, inertia_data)
-
+        if 'joint_limits' in data:
+            path = os.path.join(basepath, data['joint_limits'])
+            jlimits = rmt.load.jointLimits(path, connectivity)
     else :
         log.error("Unknown robot model extension '{0}'".format(ext))
         exit(-1)
 
     params = {}
-    if paramsfilepath is not None:
-        fpath = pathlib.Path(paramsfilepath)
+    if paramsFilePath is not None:
+        fpath = pathlib.Path(paramsFilePath)
         ext = fpath.suffix
         if ext == '.yaml' :
             import yaml
@@ -104,7 +109,10 @@ def getmodels(filepath, paramsfilepath=None, floatLiteralsAsConstants=False):
         else:
             log.warning("Unknown extension '{}' for the parameters file".format(ext))
 
-    return connectivity, ordering, frames, geometry, inertia, params
+    if jlimsFilePath is not None:
+        jlimits = rmt.load.jointLimits(jlimsFilePath, connectivity)
+
+    return connectivity, ordering, frames, geometry, inertia, params, jlimits
 
 def defpose(args):
     robot,frames,geometry,_,paramsValues = getmodels(args.robot, args.params)[1:6]
@@ -117,7 +125,7 @@ def defpose(args):
     print(np.round(H,5))
 
 def printinfo(args):
-    c,o,f,g,i,_ = getmodels(args.robot)
+    c,o,f,g,i = getmodels(args.robot)[0:5]
     print(c,o,f,g,i)
 
 def writeDOTFile(args):
@@ -168,7 +176,9 @@ def _resolve_parameters(poseSpecIterable, parametersValues):
                         count = count + 1
 
 def export(args):
-    c,o,f,g,i,params = getmodels(args.robot, args.params)[0:6]
+    c,o,f,g,i,params,jlimits = getmodels(args.robot,
+                                paramsFilePath = args.params,
+                                jlimsFilePath  = args.jlims)[0:7]
     oformat = args.oformat
 
     if oformat is None: oformat = 'yaml'
@@ -200,7 +210,7 @@ def export(args):
                     poseSpecModel = motdsl.toPosesSpecification(model)
                     _resolve_parameters(poseSpecModel.poses, params)
                     extraPoses = poseSpecModel.poses
-                text = urdfout.modelText(g, i, userExtraPoses=extraPoses)
+                text = urdfout.modelText(g, i, jointLimits=jlimits, userExtraPoses=extraPoses)
             elif o is None:
                 log.error("Cannot export a URDF if the input model does not even include ordering")
                 exit(-1)
@@ -228,7 +238,10 @@ def export(args):
         # do not close() sys.stdout :)
 
 def playground(args):
-    c,o,f,geometry,inertia,params = getmodels(args.robot, args.params, True)[0:6]
+    c,o,f,geometry,inertia,params,jlimits = getmodels(args.robot,
+                                        paramsFilePath = args.params,
+                                        jlimsFilePath  = args.jlims,
+                                        floatLiteralsAsConstants=True)[0:7]
     for link in c.links.values() :
         ip = inertia.byLink(link)
         if ip is not None:
@@ -238,10 +251,14 @@ def playground(args):
         for m in pose.motion.steps:
             print(m)
 
+    for name,limits in jlimits.byJoint.items():
+        print(name,limits)
+
 
 def setRobotArgs(argparser):
     argparser.add_argument('robot', metavar='robot-model', help='the robot model input file')
     argparser.add_argument('-p', '--params', dest='params', metavar='params-file', default=None, help='YAML/JSON file with default parameter values')
+    argparser.add_argument('-j', '--joint-limits', dest='jlims', metavar='jlims-file', default=None, help='YAML/JSON file with joint limits data')
 
 def main():
     formatter = logging.Formatter('%(levelname)s (%(name)s) : %(message)s')
