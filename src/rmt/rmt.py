@@ -29,7 +29,7 @@ def getmodels(filepath, paramsFilePath=None, jlimsFilePath=None, floatLiteralsAs
         try:
             urdffile = open(filepath)
             urdfwrap = urdfin.URDFWrapper(urdffile)
-            connectivity, ordering, frames, geometry = urdfin.convert(urdfwrap)
+            connectivity, ordering, frames, geometry, inertia = urdfin.convert(urdfwrap)
         except Exception as e:
             log.error("Failed to load URDF model: {} - {}".format(e.__class__.__name__, e))
             log.debug(traceback.format_exc(limit=-4))
