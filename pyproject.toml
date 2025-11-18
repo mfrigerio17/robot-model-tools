@@ -1,13 +1,13 @@
 [project]
 
 name        = "robot-model-tools"
-version     = "0.1.0"
+version     = "0.2.0"
 description = "Misc utilities to work with robot model formats"
 authors     = [
-    { name = "Marco Frigerio", email = "marco.frigerio17@pm.me" }
+    { name = "Marco Frigerio", email = "mfgit.6uvfu@passinbox.com" }
 ]
 
-license = { file = "LICENSE" }
+license = "BSD-3-Clause"
 readme = "readme.md"
 
 requires-python = ">=3.4"
@@ -21,7 +21,9 @@ dependencies = [
     'mako'
 ]
 
-urls = { home= "https://github.com/mfrigerio17/robot-model-tools" }
+[project.urls]
+Homepage   = "https://github.com/mfrigerio17/robot-model-tools"
+Repository = "https://github.com/mfrigerio17/robot-model-tools"
 
 [project.scripts]
 rmt = "rmt.rmt:main"
