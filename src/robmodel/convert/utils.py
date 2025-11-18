@@ -89,6 +89,53 @@ def translateInertiaMoments(inertiaMoments, mass, tr_com, tr=None):
     return ret
 
 
+def rotoTranslateInertiaMoments(moments, mass, p_com, p_desired, current_R_desired) :
+    '''
+    Roto-translate the given inertia moments so that they are relative to
+    another frame.
+
+    Arguments:
+      - moments: a `robmodel.inertia.IMoments` object. Note that its "frame"
+        attribute is ignored in this routine.
+      - mass: the mass of the same rigid body the moments refer to.
+      - p_com: position of the CoM relative to the origin of the current frame,
+        in current frame coordinates.
+      - p_desired: position of the new origin relative to the origin of the
+        current frame, in current frame coordinates
+      - current_R_desired: the 3x3 rotation matrix that rotates from the desired
+        frame to the current frame coordinates
+
+    Note that, as always, I am expecting `robmodel.inertia.IMoments` to be the
+    actual moments of inertia, NOT the elements of the tensor: the off-diagonal
+    terms have opposite sign
+    '''
+
+    # This is the position of the CoM relative to the NEW origin, in CURRENT
+    # frame coordinates:
+    vec = p_com[0:3] - p_desired[0:3]
+
+    # Parallel-axis theorem to translate the moments. Note that the compact
+    # formula uses the tensor
+    com_x = __cross_mx(p_com)
+    vec_x = __cross_mx(vec)
+
+    tensor = np.array( [[ moments.ixx, -moments.ixy, -moments.ixz],
+                        [-moments.ixy,  moments.iyy, -moments.iyz],
+                        [-moments.ixz, -moments.iyz,  moments.izz] ])
+    tensor = tensor - mass * (np.matmul(com_x, com_x.T) - np.matmul(vec_x, vec_x.T))
+
+    # Rotation
+    tensor2 = np.matmul(np.matmul(current_R_desired.T, tensor), current_R_desired)
+
+    ret = robmodel.inertia.IMoments(frame=None)
+    ret.ixx =  tensor2[0,0]
+    ret.iyy =  tensor2[1,1]
+    ret.izz =  tensor2[2,2]
+    ret.ixy = -tensor2[0,1]
+    ret.ixz = -tensor2[0,2]
+    ret.iyz = -tensor2[1,2]
+    return ret
+
 
 def __cross_mx(r) :
     return np.array(
