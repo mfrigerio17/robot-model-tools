@@ -23,7 +23,7 @@ class SampleRobotModel:
         rpath = os.path.join( name, name+'.'+extension ) # <name>/<name>.<extension>
         rfile = os.path.join( models_dir, rpath )
         logger.debug("Trying to load {0}".format(rfile))
-        self.connectivity, self.ordering, self.frames, self.geometry, self.inertia, _ = rmt.rmt.getmodels(rfile)
+        self.connectivity, self.ordering, self.frames, self.geometry, self.inertia = rmt.rmt.getmodels(rfile)[0:5]
 
 
 class RobotTestBase(unittest.TestCase):
