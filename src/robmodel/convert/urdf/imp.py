@@ -216,11 +216,11 @@ def convert( urdf ) :
         urdfjoint = urdf.joints[jname]
         name      = toValidID( jname )
         jkind     = urdfjoint.type
-        if jkind in JointKind :
+        if jkind in JointKind.__members__ :
             jkind = JointKind[jkind]
         else :
             # 'jkind' remains a string
-            logger.warning("Unknown joint type '{}' for joint '{}'".format(jkind, jname))
+            logger.warning("Unknown joint type '{}' for joint '{}'. Storing the string value rather than the enum item".format(jkind, jname))
 
         joint     = robmodel.connectivity.Joint(name, jkind)
         parent    = links[ toValidID(urdfjoint.parent) ]
