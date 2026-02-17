@@ -85,6 +85,7 @@ To launch some tests to validate your installation, move to the `test/` folder
 and run
 ```
 python -m sample_models.ur5
+python -m sample_models.hyq
 ```
 
 
