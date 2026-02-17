@@ -41,6 +41,8 @@ tpl = Template('''
     %endfor
 %endif
 
+%if includeDummies :
+    <!-- Dummy links/joints to model extra frames -->
 %if geometry is not None :
 <% dummyLinks = set() %>
 %for aframe in geometry.framesModel.userAttachedFrames:
@@ -55,8 +57,6 @@ tpl = Template('''
 
 %endfor
 %if extraPoses is not None :
-    <!-- Dummy links/joints to model the given extra frames -->
-
 %for pose in extraPoses:
 <%  ref = pose.pose.reference.name; tgt=pose.pose.target.name %>
 %   if ref not in robot.links.values() and ref not in dummyLinks :
@@ -73,10 +73,11 @@ tpl = Template('''
         <parent link="${ref}"/>
         <child  link="${tgt}"/>
     </joint>
-%endfor
 
-    <!-- end of section for extra dummy links/joints -->
+%endfor
 %endif
+%endif
+    <!-- end of section for extra dummy links/joints -->
 %endif
 
 %for joint in robot.joints.values():
@@ -200,9 +201,9 @@ def ordering(orderingModel):
         tostr=lambda num: formatter.float2str(num)
     )
 
-def modelText(geometryModel, inertiaModel=None, userExtraPoses=None, jointLimits=None):
+def modelText(geometryModel, inertiaModel=None, userExtraPoses=None, jointLimits=None, includeDummies=True):
     if jointLimits is None:
-        logger.warn("generated joint limits are arbitrary")
+        logger.warning("generated joint limits are arbitrary")
         limits = {joint : dataclasses.asdict(robmodel.jlimits.JointLimit())
                      for joint in geometryModel.connectivityModel.joints.keys()}
         jointLimits = robmodel.jlimits.JointLimits(geometryModel.connectivityModel, limits)
@@ -216,6 +217,7 @@ def modelText(geometryModel, inertiaModel=None, userExtraPoses=None, jointLimits
         extraPoses=userExtraPoses,
         jointParams=jointOrigin,
         jointKind = jointKind,
+        includeDummies = includeDummies,
         linkInertia = lambda link: linkInertia(geometryModel, inertiaModel, link),
         tostr       = lambda num: formatter.float2str(num),
     )
