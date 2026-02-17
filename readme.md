@@ -81,9 +81,10 @@ Optionally:
 
 
 # Testing
-Verify your installation by moving to the `test/` folder and running
+To launch some tests to validate your installation, move to the `test/` folder
+and run
 ```
-python ur5.py
+python -m sample_models.ur5
 ```
 
 

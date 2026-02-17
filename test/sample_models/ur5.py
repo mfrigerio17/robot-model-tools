@@ -1,8 +1,9 @@
-from robmodel.treeutils import TreeUtils
-
-from testcore import BasicTests, TreeTests
-import robottest
-from robottest import SampleRobotModel, RobotTestBase
+import sample_models.testcore
+import sample_models.loader
+import sample_models.testbase
+from sample_models.testcore import BasicTests, TreeTests
+from sample_models.loader import SampleRobotModel
+from sample_models.testbase import RobotTestBase
 
 '''
 Test classes for the UR5 robot model contained in the `sample/` folder.
@@ -46,7 +47,6 @@ class UR5TestData:
         gt['nJ'] = 6  # number of joints
 
         self.groundtruth = gt
-        self.treeutils   = TreeUtils(self.ordering)
 
 
 # mix the ground-truth data with the model data:
@@ -71,6 +71,5 @@ class UR5_tests_yaml( BasicTests, TreeTests, RobotTestBase):
         cls.robotdata = UR5_data_yaml()
 
 
-
 if __name__ == '__main__':
-    robottest.main()
+    sample_models.testbase.main()

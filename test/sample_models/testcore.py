@@ -1,7 +1,3 @@
-import logging
-
-logger = logging.getLogger(None) # get the "root" logger
-
 '''
 Common, basic tests that can be performed on loaded robot models.
 
@@ -9,6 +5,7 @@ The "self" instance is expected to have members for the loaded models, as well
 as ground-truth data for comparisons. See the `ur5.py` module for an example
 of how to setup actual tests for an actual model.
 '''
+from sample_models import logger
 
 class BasicTests:
     def test_counts(self):
@@ -37,20 +34,29 @@ class TreeTests:
             if parents[link.name] == None :
                 self.assertTrue( self.treeu.parent(link)==None )
             else :
-                real = parents[link.name]
-                candidate = self.treeu.parent(link).name
+                real = self.robot.links[ parents[link.name] ]
+                candidate = self.treeu.parent(link)
                 same = (real == candidate)
                 if not same :
                     logger.error("For link '{l}', expected parent: '{r}', got: '{c}'".format(l=link.name, r=real, c=candidate))
                 self.assertTrue( same )
+        # Writes at least a warning if the objects "just" compare equal but are
+        # not the same instance in memory
+                same = (id(real) == id(candidate))
+                if not same :
+                    logger.warning("For link '{l}', ID real parent: '{r}', ID computed parent: '{c}'".format(l=link.name, r=id(real), c=id(candidate)))
+
 
     def test_leafs(self):
         for leaf in self.groundtruth['leafs'] :
             link = self.robot.links[ leaf ]
             self.assertTrue( self.treeu.isLeaf(link) )
+        if self.robot.nB > 1:
+            self.assertFalse( self.treeu.isLeaf( self.robot.base ) )
 
     def test_ancestors(self):
         for link in self.robot.links.values() :
             self.assertTrue( self.treeu.ancestorOf( self.robot.base, link) )
+
 
 
