@@ -27,14 +27,40 @@ class KinematicsDSL:
 
     def __init__(self):
         here = os.path.dirname(os.path.abspath(__file__))
-        self.mm = textx.metamodel_from_file(here+"/kindsl.tx")
+        self.mm = textx.metamodel_from_file(here+"/kindsl.tx", auto_init_attributes=False)
+        # Disable 'auto_init_attributes' otherwise things like Parameters will
+        # appear to have a 0.0 default value even when the user does not write
+        # anything in the model.
+        # https://textx.github.io/textX/metamodel.html#auto-initialization-of-the-attributes
+
         obj_processors = {
             'PILiteral': lambda __ : vpc.MyPI.instance(),
-            'Parameter': lambda x : vpc.Parameter(name=x.name, defValue=x.defvalue),
+            'Parameter': lambda x : self._instantiateParameter(x),
             'ExplicitConstant' : lambda x : vpc.Constant(name=x.name, value=x.value),
             'RefToConstant'    : lambda x : vpc.Constant(name=x.actual.name, value=x.actual.value)
         }
         self.mm.register_obj_processors( obj_processors )
+        self._resetState()
+
+    def _resetState(self):
+        self.paramInstances = {}
+        self.paramDefValues = {}
+
+    def _instantiateParameter(self, paramFromModel):
+        # All the parameters with the same name (i.e. references to the same
+        #  model parameter) get the default value which was encountered first
+        name     = paramFromModel.name
+        plist    = self.paramInstances.setdefault(name, [])
+        defvalue = self.paramDefValues.get(name)
+        if defvalue is None and paramFromModel.defvalue is not None:
+            defvalue = paramFromModel.defvalue
+            self.paramDefValues[name] = defvalue
+            for p in plist:
+                p.dvalue_ = defvalue
+
+        newp = vpc.Parameter(name=name, defValue=defvalue)
+        plist.append(newp)
+        return newp
 
     def modelFromFile(self, file):
         '''
