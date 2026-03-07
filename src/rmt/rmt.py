@@ -144,23 +144,57 @@ def writeMotDSLFile(args):
         ostream.close()
 
 
+
+def _resolve_param(possiblyParametric, parametersValues, asFloat=False):
+    '''
+    Given a parametric expression, return the same expression after replacing
+    the parameter with a constant, with value taken from the given dictionary.
+    If there is no value in the dictionary, the parameter's default value is
+    used; if that is also not available, log an error and return the original
+    expression.
+    '''
+    val = possiblyParametric
+    if isinstance(val, kgprim.values.Expression):
+        if isinstance(val.argument, kgprim.values.Parameter):
+            param = val.argument
+            pname = param.name
+            value = parametersValues.get(pname, param.defaultValue)
+            if value is None:
+                log.error("No value available for parameter '{}'".format(pname))
+            else:
+            # First create a Constant to replace the Parameter
+            # Then replicate the same expression, but with the new argument
+                cc   = kgprim.values.Constant("cc_{}".format(pname), value)
+                expr = val.expr.subs({pname: cc.symbol})  # SymPy::subs()
+                val  = kgprim.values.Expression(cc , expr)
+                if asFloat :
+                    val = float( val.evalf() )
+    return val
+
+
 def _resolve_parameters(poseSpecIterable, parametersValues):
     # Replace the parameters in geometry model with constants with the given
     # value. This allows the numerical evaluation of the geometry data, e.g.
     # when exporting the model to a format that does not support parameters.
-    count = 0
     for poseSpec in poseSpecIterable:
         for motionSeq in poseSpec.motion.sequences:
             for step in motionSeq.steps:
-                if isinstance(step.amount, kgprim.values.Expression):
-                    if isinstance(step.amount.argument, kgprim.values.Parameter):
-                        pname = step.amount.argument.name
-                        if pname not in parametersValues:
-                            log.error("No value available for parameter '{}'".format(pname))
-                        else:
-                            val = step.amount.expr.subs({pname:parametersValues[pname]}) # SymPy subs()
-                            step.amount = kgprim.values.Expression( kgprim.values.Constant("c{}".format(count), val) )
-                        count = count + 1
+                step.amount = _resolve_param(step.amount, parametersValues)
+
+def _resolve_iparameters(inertiaModel, parametersValues):
+    for linkName in inertiaModel.robot.links :
+        inertia = inertiaModel.byLinkName(linkName)
+        if inertia:
+            inertia.mass  = _resolve_param(inertia.mass , parametersValues, asFloat=True)
+            inertia.com.x = _resolve_param(inertia.com.x, parametersValues, asFloat=True)
+            inertia.com.y = _resolve_param(inertia.com.y, parametersValues, asFloat=True)
+            inertia.com.z = _resolve_param(inertia.com.z, parametersValues, asFloat=True)
+            inertia.moments.ixx = _resolve_param(inertia.moments.ixx, parametersValues, asFloat=True)
+            inertia.moments.ixy = _resolve_param(inertia.moments.ixy, parametersValues, asFloat=True)
+            inertia.moments.ixz = _resolve_param(inertia.moments.ixz, parametersValues, asFloat=True)
+            inertia.moments.iyy = _resolve_param(inertia.moments.iyy, parametersValues, asFloat=True)
+            inertia.moments.iyz = _resolve_param(inertia.moments.iyz, parametersValues, asFloat=True)
+            inertia.moments.izz = _resolve_param(inertia.moments.izz, parametersValues, asFloat=True)
 
 def export(args):
     c,o,f,g,i,params,jlimits = getmodels(args.robot,
@@ -186,6 +220,8 @@ def export(args):
                     # if parameter values were given, we assume the user wants
                     # to resolve parametrization
                     _resolve_parameters(g.posesModel.poses, params)
+                    if i is not None :
+                        _resolve_iparameters(i, params)
                 text = kindslout.modelText(g,i)
             else :
                 log.error("Sorry, I can export to KinDSL only a complete geometry model ")
@@ -194,6 +230,8 @@ def export(args):
             import robmodel.convert.urdf.exp as urdfout
             if g is not None :
                 _resolve_parameters(g.posesModel.poses, params)
+                if i is not None:
+                    _resolve_iparameters(i, params)
                 extraPoses = None
                 if args.extraposes is not None:
                     import motiondsl.motiondsl as motdsl
