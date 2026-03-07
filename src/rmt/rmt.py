@@ -94,20 +94,7 @@ def getmodels(filepath, paramsFilePath=None, jlimsFilePath=None, floatLiteralsAs
         log.error("Unknown robot model extension '{0}'".format(ext))
         exit(-1)
 
-    params = {}
-    if paramsFilePath is not None:
-        fpath = pathlib.Path(paramsFilePath)
-        ext = fpath.suffix
-        if ext == '.yaml' :
-            import yaml
-            with open(fpath) as istream:
-                params = yaml.safe_load(istream)
-        elif ext == '.json' :
-            import json
-            with open(fpath) as istream:
-                params = json.load(istream)
-        else:
-            log.warning("Unknown extension '{}' for the parameters file".format(ext))
+    params = rmt.load.loadDictionary(paramsFilePath)
 
     if jlimsFilePath is not None:
         jlimits = rmt.load.jointLimits(jlimsFilePath, connectivity)
