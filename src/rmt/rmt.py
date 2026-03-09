@@ -13,7 +13,7 @@ import rmt.load
 import rmt.kinematics
 import kgprim.values
 
-log = logging.getLogger() # get the root logger, this is a command line app
+log = rmt.logger
 
 
 def getmodels(filepath, paramsFilePath=None, jlimsFilePath=None, floatLiteralsAsConstants=False):

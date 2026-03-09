@@ -9,3 +9,6 @@ end user, since they are limited to the command line tool. For programmatic
 usage of the API to load robot models, refer to the `robmodel` package, which
 this package largely relies on.
 '''
+
+import logging
+logger = logging.getLogger(__name__)
