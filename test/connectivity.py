@@ -1,5 +1,6 @@
 import unittest
 import robmodel.connectivity as rcn
+import robmodel.ordering
 
 class ConnectivityTests(unittest.TestCase):
     def _make_malformed(self):
@@ -23,6 +24,24 @@ class ConnectivityTests(unittest.TestCase):
         self.assertEqual( robot.linkPairToJoint(l2,l1), j1 )
         self.assertEqual( robot.jointToLinkPair(j1), (l1,l2) )
 
+    def test_iteration_on_ordered_models(self):
+        l1 = rcn.Link("l1")
+        l2 = rcn.Link("l2")
+        l3 = rcn.Link("l3")
+        j1 = rcn.Joint("j1", rcn.JointKind.revolute)
+        j2 = rcn.Joint("j2", rcn.JointKind.revolute)
+        robot = rcn.Robot("robot_test", [rcn.KPair(j1, l1, l2), rcn.KPair(j2, l2, l3)])
+
+        numbering1 = {"robot":robot.name, "nums": {"l1":0,"l2":1,"l3":2}}
+        numbering2 = {"robot":robot.name, "nums": {"l1":2,"l2":1,"l3":0}}
+        ordered1 = robmodel.ordering.Robot(robot, numbering1)
+        ordered2 = robmodel.ordering.Robot(robot, numbering2)
+
+        self.assertEqual(["l1","l2","l3"], [name for name in ordered1.links])
+        self.assertEqual(["l3","l2","l1"], [name for name in ordered2.links])
+
+        self.assertEqual(["j1","j2"], [name for name in ordered1.joints])
+        self.assertEqual(["j2","j1"], [name for name in ordered2.joints])
 
 
 if __name__ == '__main__':

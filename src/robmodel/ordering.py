@@ -92,8 +92,21 @@ class Robot(robmodel.connectivity.Robot):
 
         self.dgraph = dGraph
 
+        # By-name maps of links and joints, ordered consistently with the numbering scheme
+        # Dictionaries preserve insertion order.
+        # These are used to override the base class' `links` and `joints`, so
+        #  that iteration over those will reflect the ordering, for this instance.
+        self.olinks = { (link :=self.codeToLink[i] ).name : link  for i in range(0, self.nB) }
+        self.ojoints= { (joint:=self.codeToJoint[i]).name : joint for i in range(1, self.nJ+1) }
+
     @property
     def base(self):  return self.codeToLink[0]
+
+    @property
+    def links(self) : return self.olinks
+
+    @property
+    def joints(self) : return self.ojoints
 
     def linkNum (self, link): return self.itemNameToCode[link.name]
 
