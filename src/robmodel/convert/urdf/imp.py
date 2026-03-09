@@ -151,9 +151,6 @@ class URDFWrapper :
 
 
 
-def toValidID( name ) :
-    return name.replace('-', '__')
-
 def com_frame_name(link) :
     return 'fr_' + link.name + '_com'
 
@@ -180,41 +177,34 @@ def linkFrameToJointFrameInURDF(urdfjoint):
 
 
 
-def convert( urdf ) :
+def convert( urdf, dropFixedJoints=False, **kwargs) :
     '''
     Reads the model from a URDFWrapper instance, and construct the corresponding
     models in our format.
     '''
 
     robotName = urdf.robotName
-    links  = ODict()
-    joints = ODict()
     pairs = []
     children = {}
-    orphans = []
-
-    for urdfname in urdf.links.keys() :
-        name = toValidID( urdfname )
-        link = robmodel.connectivity.Link(name)
-        links[name] = link
-        children[name] = []
-        if urdf.links[urdfname].parent == None :
-            orphans.append(link)
+    orphans = [name for name in urdf.links if urdf.links[name].parent == None]
 
     if len(orphans)==0 :
         logger.fatal("Could not find any root link (i.e. a link without parent).")
         logger.fatal("Check for kinematic loops.")
-        print("Error, no root link found. Aborting", file=sys.stderr)
-        sys.exit(-1)
+        raise RuntimeError("no root link found")
     if len(orphans) > 1 :
         logger.warning("Found {0} links without parent, only one expected".format(len(orphans)))
         logger.warning("Any robot model must have exactly one root element.")
         logger.warning("This might lead to unexpected results.")
-    robotBase = orphans[0]
 
-    for jname in urdf.joints.keys() :
-        urdfjoint = urdf.joints[jname]
-        name      = toValidID( jname )
+    # Build the list of kinematic pairs by going through the sequence of joints.
+    # Use a cache to avoid creating multiple times the "same" link (for those
+    # appearing in multiple pairs). Although this would not normally be
+    # a problem, because `Link` overrides equality, I want to make sure there is
+    # only one unique instance in memory.
+    linksPool = {}
+    for name in urdf.joints :
+        urdfjoint = urdf.joints[name]
         jkind     = urdfjoint.type
         if jkind in JointKind.__members__ :
             jkind = JointKind[jkind]
@@ -222,14 +212,15 @@ def convert( urdf ) :
             # 'jkind' remains a string
             logger.warning("Unknown joint type '{}' for joint '{}'. Storing the string value rather than the enum item".format(jkind, jname))
 
-        joint     = robmodel.connectivity.Joint(name, jkind)
-        parent    = links[ toValidID(urdfjoint.parent) ]
-        child     = links[ toValidID(urdfjoint.child)  ]
-        children[parent.name].append( child )
-
-        joints[name] = joint
-        pairs.append( robmodel.connectivity.KPair(joint, parent, child) )
-
+        if not (jkind==JointKind.fixed and dropFixedJoints):
+            joint  = robmodel.connectivity.Joint(name, jkind)
+            parent = linksPool.setdefault(urdfjoint.parent, robmodel.connectivity.Link(urdfjoint.parent))
+            child  = linksPool.setdefault(urdfjoint.child , robmodel.connectivity.Link(urdfjoint.child ))
+            children.setdefault(parent.name, [])
+            children[parent.name].append( child.name )
+            pairs.append( robmodel.connectivity.KPair(joint, parent, child) )
+        else:
+            logger.info("Dropping fixed joint '{}'".format(name))
 
     # CONNECTIVITY MODEL
     connectivityModel = robmodel.connectivity.Robot(robotName, pairs)
@@ -237,26 +228,30 @@ def convert( urdf ) :
     # REGULAR NUMBERING
     # There is no numbering scheme in the URDF format, so we arbitrarily
     # associate code to each link via a Depth-First-Traversal
-    code = 0
+    robotBase = orphans[0]
+    code = 1
     numbering = {}
     fixedLinks = []
     def setCode(currentLink, parent):
         nonlocal code, numbering, fixedLinks
-        if currentLink == None : return
-
-        joint = connectivityModel.linkPairToJoint(currentLink, parent)
-        if joint is not None and joint.kind == JointKind.fixed :
+        joint = connectivityModel.linkPairToJoint(
+            connectivityModel.links[currentLink], connectivityModel.links[parent])
+        if joint.kind == JointKind.fixed :
             fixedLinks.append(currentLink)
         else:
-            numbering[currentLink.name] = code
+            numbering[currentLink] = code
             code = code + 1
-        for child in children[currentLink.name] :
+        for child in children.get(currentLink, []) :
             setCode( child, currentLink )
 
-    setCode( robotBase, None)
-    for fl in fixedLinks :
-        numbering[fl.name] = code
-        code = code + 1
+    numbering[robotBase] = 0
+    for child in children.get(robotBase, []) :
+        setCode( child, robotBase )
+
+    if not dropFixedJoints:
+        for fl in fixedLinks :
+            numbering[fl] = code
+            code = code + 1
 
     ordering = { 'robot': robotName, 'nums' : numbering }
     orderedModel = robmodel.ordering.Robot(connectivityModel, ordering)
@@ -267,7 +262,7 @@ def convert( urdf ) :
     # However, it implicitly uses frames with origin at the CoMs, because the
     # inertial moments are defined there, according to the specs.
     comFrames = []
-    for name,link in connectivityModel.links.items():
+    for _,link in orderedModel.links.items():
         comFrames.append( primitives.Attachment( primitives.Frame(com_frame_name(link)), link ) )
 
     framesModel = robmodel.frames.RobotDefaultFrames(orderedModel, comFrames)
@@ -275,12 +270,11 @@ def convert( urdf ) :
     # GEOMETRY MEASUREMENTS
     poses = []
     axes = {}
-    for joint in urdf.joints.values() :
-        # Get the current joint and link (predecessor)
-        myjoint = joints[ toValidID( joint.name ) ]
-        mylink  = orderedModel.predecessor(myjoint)
+    for name, myjoint in orderedModel.joints.items() :
+        mylink = orderedModel.predecessor(myjoint)
+        joint  = urdf.joints[name]
 
-        logger.debug("Processing joint * {0} * and predecessor link * {1} *".format(myjoint.name, mylink.name) )
+        logger.debug("Processing joint * {0} * and predecessor link * {1} *".format(name, mylink.name) )
 
         # The relative pose of the URDF joint frame relative to the URDF link frame
         xyz, rpy, motion_link_to_joint = linkFrameToJointFrameInURDF(joint)
@@ -294,16 +288,15 @@ def convert( urdf ) :
         frame_link  = framesModel.framesByName[ robmodel.frames.linkFrameName(orderedModel, mylink)  ]
         pose = primitives.Pose(target=frame_joint, reference=frame_link)
         poses.append( PoseSpec(pose, motion_link_to_joint) )
-        axes[myjoint.name] = joint.frame['axis']
+        axes[name] = joint.frame['axis']
 
     # Add pose information for the CoM frames
-    for name, link in urdf.links.items() :
-        linkName  = toValidID( name )
-        linkFrame = framesModel.byLink[ connectivityModel.links[linkName] ]
+    for name, link in orderedModel.links.items() :
+        linkFrame = framesModel.byLink[ link ]
         comFrame  = framesModel.byName[com_frame_name(link)]
 
         pose = primitives.Pose(target=comFrame, reference=linkFrame)
-        com  = link.inertia['xyz']
+        com  = urdf.links[name].inertia['xyz']
         tr   = [motions.translation(a, com[a.value]) for a in motions.Axis if round(com[a.value],5) != 0.0]
 
         poses.append( PoseSpec(pose, MotionSequence(tr, MotionSequence.Mode.fixedFrame)) )
@@ -313,18 +306,18 @@ def convert( urdf ) :
 
     # INERTIAL MODEL
     inertialData = {}
-    for name, link in urdf.links.items() :
-        linkName  = toValidID( name )
-        linkFrame = framesModel.byLink[ connectivityModel.links[linkName] ]
-        comFrame  = framesModel.byName[com_frame_name(link)]
+    for name, mylink in orderedModel.links.items() :
+        linkFrame = framesModel.byLink[ mylink ]
+        comFrame  = framesModel.byName[com_frame_name(mylink)]
 
+        link = urdf.links[name]
         com  = link.inertia['xyz']
         com  = robmodel.inertia.CoM(linkFrame, com[0], com[1], com[2] )
         mass = link.inertia['mass']
 
         moments = robmodel.inertia.IMoments(comFrame, **link.inertia['moments'])
 
-        inertialData[ linkName ] = robmodel.inertia.BodyInertia(mass, com, moments)
+        inertialData[ name ] = robmodel.inertia.BodyInertia(mass, com, moments)
     inertiaModel = robmodel.inertia.RobotLinksInertia(connectivityModel, framesModel, inertialData)
 
     return connectivityModel, orderedModel, framesModel, geometryModel, inertiaModel

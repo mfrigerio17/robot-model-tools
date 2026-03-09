@@ -16,7 +16,7 @@ import kgprim.values
 log = rmt.logger
 
 
-def getmodels(filepath, paramsFilePath=None, jlimsFilePath=None, floatLiteralsAsConstants=False):
+def getmodels(filepath, paramsFilePath=None, jlimsFilePath=None, floatLiteralsAsConstants=False, **kwargs):
     connectivity = None
     ordering     = None
     frames       = None
@@ -29,7 +29,7 @@ def getmodels(filepath, paramsFilePath=None, jlimsFilePath=None, floatLiteralsAs
         try:
             urdffile = open(filepath)
             urdfwrap = urdfin.URDFWrapper(urdffile)
-            connectivity, ordering, frames, geometry, inertia = urdfin.convert(urdfwrap)
+            connectivity, ordering, frames, geometry, inertia = urdfin.convert(urdfwrap, **kwargs)
         except Exception as e:
             log.error("Failed to load URDF model: {} - {}".format(e.__class__.__name__, e))
             log.debug(traceback.format_exc(limit=-4))
