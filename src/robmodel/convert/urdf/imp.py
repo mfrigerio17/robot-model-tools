@@ -232,8 +232,7 @@ def convert( urdf ) :
 
 
     # CONNECTIVITY MODEL
-    connectivityModel = robmodel.connectivity.Robot(
-        urdf.robotName, links, joints, pairs)
+    connectivityModel = robmodel.connectivity.Robot(robotName, pairs)
 
     # REGULAR NUMBERING
     # There is no numbering scheme in the URDF format, so we arbitrarily

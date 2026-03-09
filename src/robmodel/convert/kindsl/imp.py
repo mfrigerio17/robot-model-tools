@@ -129,7 +129,7 @@ class Importer:
                 kpairs.append( robmodel.connectivity.KPair(joint, parent, child) )
 
         connectivityModel = robmodel.connectivity.Robot(
-                        kinDSLModel.name, links, joints, kpairs)
+                        kinDSLModel.name, kpairs)
 
         # NUMBERING SCHEME
         numbering = {}

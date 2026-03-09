@@ -70,20 +70,28 @@ class Robot:
     the joints.
 
     Connectivity does not include any numerical data about the geometry nor
-    inertia of the robot.
+    inertia of the robot, nor it imposes any particular ordering on the links.
     '''
 
-    def __init__(self, name, links, joints, pairs):
+    def __init__(self, name, pairs):
+        '''
+        Arguments:
+          - `name` : the name of the robot model
+          - `pairs`: a sequence of `KPair` objects
+        '''
         self.log = logging.getLogger('robot')
         self._name = name
-        self._links = links  # by-name map
-        self._joints= joints # by-name map
 
-        # A map from joint to links in the pair
+        # A map from joints to link-pairs
         self.pairs = {kp.joint: (kp.link1, kp.link2) for kp in pairs}
 
-        self._nB = len(links)             # number of bodies
-        self._nJ = len(joints)            # number of joints
+        # The by-name maps for links and joints.
+        # Some links will be added multiple times, but it does not matter as
+        # the dictionary acts like a set
+        self._links  = { link.name:link for pair in pairs for link in [pair.link1, pair.link2] }
+        self._joints = { pair.joint.name:pair.joint for pair in pairs }
+        self._nB = len(self._links)              # number of bodies
+        self._nJ = len(self._joints)             # number of joints
         self._nLoopJ = self._nJ - (self._nB - 1) # number of loop joints
 
         # The connectivity graph.
@@ -157,9 +165,6 @@ class Robot:
         else :
             self.log.debug("OK, the robot graph is connected")
 
-        for j in self.joints.values() :
-            if j not in self.pairs.keys():
-                self.log.error("Joint {} does not connect any link".format(j.name))
 
 def fromDict(data):
     '''
@@ -184,7 +189,7 @@ def fromDict(data):
                      links [ p['link1'] ],
                      links [ p['link2'] ] )
                      for p in data['pairs'] ]
-    return Robot(rname, links, joints, pairs)
+    return Robot(rname, pairs)
 
 
 def graphToString(graph):
