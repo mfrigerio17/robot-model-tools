@@ -18,7 +18,7 @@ log = logging.getLogger(__name__)
 
 class Robot(robmodel.connectivity.Robot):
     '''
-    The composition of a basic robot model with a numbering scheme for the links.
+    The composition of a connectivity model with a numbering scheme for the links.
 
     A numeric code for each link and joint is required.
     The codes for the links must be integers from 0 to NB-1, in sequence, where
