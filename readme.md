@@ -1,8 +1,8 @@
-This is the readme file of the "Robot Model Tools" Python package.
+This is the "Robot Model Tools" Python package.
 
-The modules in the `robmodel` package allow to model some aspects of articulated
-robots, such as connectivity, numbering scheme of the links, attached frames,
-geometry, etc.
+The modules in the `robmodel` package represent different aspects of articulated
+robot models, such as connectivity, numbering scheme of the links, attached
+frames, geometry, etc.
 
 The `rmt` package implements a command line program that operates on robot
 models, such as the URDF or the KinDSL formats. See
@@ -38,24 +38,15 @@ pdoc --no-show-source -o /tmp/docs/rmt rmt/ robmodel/
 pip install rmt
 ```
 
-Alternatively, install from the source code:
+Alternatively, install from the source tree:
 
 ```sh
 git clone <repo> rmt    # replace <repo> with the right URL
 cd rmt/
-pip install .           # should also install the dependencies available in PyPI
+pip install .
 ```
 
 
-#### Virtual environment
-You might want to install the tool and its dependencies in an isolated virtual
-environment. If so, run the following before the installation procedure:
-
-```sh
-mkdir myvenv && python3 -m venv myvenv
-source myvenv/bin/activate  # may need to pick another script depending on your shell
-#pip install wheel           # may also required to set up the env
-```
 
 ## Dependencies
 The following libraries are used by this project:
@@ -91,7 +82,7 @@ python -m sample_models.hyq
 
 # License
 
-Copyright © 2019-2022, Marco Frigerio
+© 2019-present, Marco Frigerio
 
 Released under the BSD 3-clause license. See the `LICENSE` file for additional
 information.
