@@ -10,7 +10,7 @@ authors     = [
 license = "BSD-3-Clause"
 readme = "readme.md"
 
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 
 dependencies = [
     'kgprim',
