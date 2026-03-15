@@ -1,7 +1,7 @@
 [project]
 
 name        = "robot-model-tools"
-version     = "0.2.0"
+version     = "0.3.0"
 description = "Misc utilities to work with robot model formats"
 authors     = [
     { name = "Marco Frigerio", email = "mfgit.6uvfu@passinbox.com" }

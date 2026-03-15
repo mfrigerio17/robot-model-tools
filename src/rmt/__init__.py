@@ -10,5 +10,7 @@ usage of the API to load robot models, refer to the `robmodel` package, which
 this package largely relies on.
 '''
 
+__version__ = '0.3.0'
+
 import logging
 logger = logging.getLogger(__name__)
