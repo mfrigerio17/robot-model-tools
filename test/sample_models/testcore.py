@@ -58,5 +58,13 @@ class TreeTests:
         for link in self.robot.links.values() :
             self.assertTrue( self.treeu.ancestorOf( self.robot.base, link) )
 
-
+    def test_siblings(self):
+        parents = self.groundtruth['parents']
+        children = { parent : [] for parent in parents.values() }
+        for link,parent in parents.items():
+            children[parent].append(link)
+        for link,parent in parents.items():
+            truth = len(children.get(parent, [])) > 1
+            test = self.treeu.hasSiblings(self.robot.links[link])
+            self.assertEqual(truth, test)
 

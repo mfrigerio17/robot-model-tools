@@ -102,5 +102,11 @@ class TreeUtils:
                     current2 = self.parent(current2)
         return lca
 
+    def hasSiblings(self, link):
+        '''
+        Tells whether the parent of the given link has more than one child
+        '''
 
+        parent = self.parent(link)
+        return parent is not None and (self.parentToChild.out_degree(parent) > 1)
 
