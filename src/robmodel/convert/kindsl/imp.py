@@ -173,17 +173,14 @@ class Importer:
 
         # INERTIA
         inertiadict = {}
-        inertiaBodies = kinDSLModel.links
-        if kinDSLModel.base.__class__.__name__ == 'FloatingRobotBase' :
-            inertiaBodies = allBodies
-
-        for linkin in inertiaBodies:
+        for linkin in allBodies:
             ipin = linkin.bodyInertia
             if ipin is not None:
                 #TODO support the inertia properties in the user-frame
                 # Otherwise, the KinDSL format uses the default link frame for all
                 # the inertia properties.
                 frame = framesModel.framesByName[ robmodel.frames.linkFrameName(orderedModel, linkin) ]
+
                 mass = self._exprValue(ipin.mass, linkin.name+'_mass')
                 com = inertia.CoM(frame,
                                   x = self._exprValue(ipin.com.x, linkin.name+'_comx'),
