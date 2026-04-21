@@ -16,7 +16,10 @@ import robmodel.ordering
 import robmodel.frames
 import robmodel.geometry
 import robmodel.inertia
+import robmodel.jlimits
 from robmodel.connectivity import JointKind
+from robmodel.jlimits import JointLimit
+import dataclasses
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +40,7 @@ class URDFWrapper :
             self.frame = None
             self.parent= None
             self.child = None
+            self.limits= None
             #self.predec_H_joint = np.identity(4)
 
     iMomentsLabels = ['ixx', 'iyy', 'izz', 'ixy', 'ixz', 'iyz']
@@ -63,6 +67,7 @@ class URDFWrapper :
             joint = URDFWrapper.Joint( name )
             joint.type  = nodejoint.get('type')
             joint.frame = self.readJointFrameData( nodejoint )
+            joint.limits= self.readJointLimitsData( nodejoint )
             #joint.predec_H_joint[:3,:3] = getR_extrinsicXYZ( * joint.frame['rpy'] )
             #joint.predec_H_joint[:3,3]  = np.array( joint.frame['xyz'] )
             joint.parent= nodejoint.find('parent').get('link')
@@ -149,6 +154,21 @@ class URDFWrapper :
 
         return params
 
+
+    def readJointLimitsData(self, jointNode):
+        ret = None
+        node = jointNode.find('limit')
+        if node is not None :
+            ret = JointLimit()
+            aux = node.get('lower')
+            ret.lower_pos = float(aux) if aux else None
+            aux = node.get('upper')
+            ret.upper_pos = float(aux) if aux else None
+            aux = node.get('effort')
+            ret.force = float(aux) if aux else None
+            aux = node.get('velocity')
+            ret.velocity = float(aux) if aux else None
+        return ret
 
 
 def com_frame_name(link) :
@@ -320,4 +340,10 @@ def convert( urdf, dropFixedJoints=False, **kwargs) :
         inertialData[ name ] = robmodel.inertia.BodyInertia(mass, com, moments)
     inertiaModel = robmodel.inertia.RobotLinksInertia(connectivityModel, framesModel, inertialData)
 
-    return connectivityModel, orderedModel, framesModel, geometryModel, inertiaModel
+
+    # JOINT LIMITS
+    jlimits_data = {jname : dataclasses.asdict(urdf.joints[jname].limits)
+                        for jname in orderedModel.joints }
+    limitsModel = robmodel.jlimits.JointLimits(orderedModel, jlimits_data)
+
+    return connectivityModel, orderedModel, framesModel, geometryModel, inertiaModel, limitsModel
