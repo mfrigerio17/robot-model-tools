@@ -123,8 +123,8 @@ class RobotDefaultFrames():
         self.linkFrames  = {}
         self.jointFrames = {}
         self.framesByName= {}
-        self.userAttachedFrames = userAttachedFrames
-        self._makeGraph()
+        self._userFrames  = {}
+        self._makeGraph(userAttachedFrames)
 
     def __iter__(self):
         return iter(self.framesByName)
@@ -144,7 +144,7 @@ class RobotDefaultFrames():
     # to the given robot. Follows robcogen convention. Assumes ordering
     # between link1 and link2 of each pair.
     #
-    def _makeGraph(self):
+    def _makeGraph(self, userAttachedFrames):
         graph = self.graph = nx.Graph()
 
         for link in self.robot.links.values() :
@@ -168,12 +168,13 @@ class RobotDefaultFrames():
             self.framesByName[jf1.name] = jf1
             self.jointFrames[ joint ] = jf1
 
-        for userFrame in self.userAttachedFrames :
+        for userFrame in userAttachedFrames :
             userFrame.attrs['role'] = FrameRole.user
             graph.add_node( userFrame )
             link = userFrame.body  # a property of primitives.Attachment
             graph.add_edge( self.linkFrames[link], userFrame, kind=FrameRelationKind.generic )
             self.framesByName[ userFrame.name ] = userFrame
+            self._userFrames[ userFrame.name ] = userFrame
 
         self.graph = graph
         return graph
@@ -204,3 +205,9 @@ class RobotDefaultFrames():
     def byName(self):
         '''A dictionary mapping the Frame name to the actual Frame'''
         return self.framesByName
+
+    @property
+    def userFrames(self):
+        '''A by-name dictionary of the custom Frames given to the constructor'''
+        return self._userFrames
+
