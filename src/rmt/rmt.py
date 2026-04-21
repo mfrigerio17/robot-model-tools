@@ -72,7 +72,11 @@ def getmodels(filepath, paramsFilePath=None, jlimsFilePath=None, floatLiteralsAs
             nscheme = yamlin.numbering_scheme(istream)
             istream.close()
             ordering = robmodel.ordering.Robot( connectivity, nscheme )
-            frames   = robmodel.frames.RobotDefaultFrames(ordering, [])
+
+            path = data.get('user_frames', None)
+            istream = open(os.path.join(basepath, path)) if path else None
+            frames = yamlin.frames(ordering, istream)
+            if istream: istream.close()
             if 'geometry' in data:
                 path = os.path.join(basepath, data['geometry'])
                 istream = open(path)
@@ -82,14 +86,15 @@ def getmodels(filepath, paramsFilePath=None, jlimsFilePath=None, floatLiteralsAs
             if 'inertia' in data :
                 filepath = os.path.join(basepath, data['inertia'])
                 istream = open(filepath)
-                inertia_data = yamlin.inertia(istream, floatLiteralsAsConstants);
+                inertia_data = yamlin.inertia(istream, robotFrames=frames, floatLiteralsAsConstants=floatLiteralsAsConstants);
                 istream.close()
                 if inertia_data == None :
                     raise RuntimeError("Could not load inertia data")
                 inertia = robmodel.inertia.RobotLinksInertia(connectivity, frames, inertia_data)
         if 'joint_limits' in data:
             path = os.path.join(basepath, data['joint_limits'])
-            jlimits = rmt.load.jointLimits(path, connectivity)
+            with open(path) as istream:
+                jlimits = yamlin.joint_limits(istream, connectivity)
     else :
         log.error("Unknown robot model extension '{0}'".format(ext))
         exit(-1)

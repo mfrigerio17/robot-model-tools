@@ -4,6 +4,7 @@ import sympy
 
 from kgprim.core import Frame
 from kgprim.core import Pose
+from kgprim.core import Attachment
 import kgprim.motions as motions
 from kgprim.motions import MotionStep
 from kgprim.motions import MotionSequence
@@ -13,7 +14,11 @@ import kgprim.values as expr
 import robmodel.connectivity    as robot_connectivity
 import robmodel.ordering as robot_ordering
 import robmodel.inertia  as bodyinertia
+import robmodel.jlimits
+import robmodel.frames
+from robmodel.frames import FrameRole
 
+from robmodel.convert.yaml import logger
 
 # Matches "pi" case insensitive, with some other possible non-letter
 # characters around, like "pi/2". It captures the "pi"
@@ -22,16 +27,31 @@ pimatcher = re.compile("[^a-zA-Z]*([P|p][I|i])[^a-zA-Z]*")
 
 def connectivity(istream):
     data  = yaml.safe_load(istream)
+    mid = data["model"]
+    data["name"]  = mid
+    data["robot"] = mid
     return robot_connectivity.fromDict(data)
 
 
 def numbering_scheme(istream):
     data  = yaml.safe_load(istream)
+    mid = data["model"]
+    data["name"]  = mid
+    data["robot"] = mid
     return robot_ordering.numberingSchemeFromDict(data)
 
+def frames(orderedConnectivityModel, istream_userframes=None):
+    userframes = []
+    if istream_userframes:
+        data = yaml.safe_load(istream_userframes)
+        for entry in data["userframes"]:
+            f = Frame(entry["name"])
+            f = Attachment(entity=f, body=orderedConnectivityModel.links[entry["attached_to"]])
+            f.attrs["role"] = FrameRole.user
+            userframes.append(f)
+    return robmodel.frames.RobotDefaultFrames(orderedConnectivityModel, userframes)
 
-
-def inertia(istream, floatLiteralsAsConstants=False):
+def inertia(istream, robotFrames, floatLiteralsAsConstants=False):
     data = yaml.safe_load(istream)
     if 'inertia' not in data :
         logger.error("YAML data must have an 'inertia' element")
@@ -47,13 +67,25 @@ def inertia(istream, floatLiteralsAsConstants=False):
             if v in com :
                 # however, we possibly overwrite some values here
                 com[v] = _getPropertyValue(com[v], floatLiteralsAsConstants)
-        com  = bodyinertia.CoM( **com )
+        frame = robotFrames.byName.get(com["frame"])
+        if not frame:
+            logger.warning("Frame '%s' referenced for the CoM of link '%s', is not a robot frame",
+                                        com["frame"], link)
+        else:
+            com["frame"] = frame
+        com = bodyinertia.CoM( **com )
 
         im = current['moments']
         for v in ['ixx', 'iyy', 'izz', 'ixy', 'ixz', 'iyz'] :
             if v in im :
                 im[v] = _getPropertyValue(im[v], floatLiteralsAsConstants)
-        im   = bodyinertia.IMoments( **im )
+        frame = robotFrames.byName.get(im["frame"])
+        if not frame:
+            logger.warning("Frame '%s' referenced for the moments of link '%s', is not a robot frame",
+                                        im["frame"], link)
+        else:
+            im["frame"] = frame
+        im = bodyinertia.IMoments( **im )
 
         ret[link] = bodyinertia.BodyInertia(mass=mass, com=com, moments=im)
 
@@ -101,8 +133,14 @@ def geometry(istream, floatLiteralsAsConstants=False) :
     return PosesSpec(**out)
 
 
-def joint_limits(istream):
-    return yaml.safe_load(istream)
+def joint_limits(istream, connectivity):
+    data = yaml.safe_load(istream)
+    mid = data["model"]
+    data["robot"] = mid
+    data["name"] = mid
+    return robmodel.jlimits.JointLimits(connectivity, data["limits"])
+
+
 
 
 def _getPropertyValue(yamlvalue, floatLiteralsAsConstants=False):

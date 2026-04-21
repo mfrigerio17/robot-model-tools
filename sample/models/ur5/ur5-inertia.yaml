@@ -1,4 +1,4 @@
-robot: ur5
+model: ur5
 
 inertia:
   shoulder :

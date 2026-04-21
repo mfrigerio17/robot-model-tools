@@ -5,3 +5,6 @@ The format is defined within this project. It is an attempt to provide a
 serialization format for the individual aspects of a robot model
 (connectivity, numbering, etc.), separately.
 '''
+
+import logging
+logger = logging.getLogger(__name__)
