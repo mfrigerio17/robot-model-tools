@@ -211,8 +211,48 @@ def export(args):
 
     try:
         if oformat == 'yaml' :
-            log.error('Sorry, not implemented yet')
-            exit(-1)
+            import robmodel.convert.yaml.exp as yamlexp
+            log.warning('Work-in-progress')
+
+            outpath = pathlib.Path(args.outfile).resolve()
+            filenames = yamlexp.model_kind_to_file_name_defaults.copy()
+            def mkfile(name, content):
+                with open(outpath / name,  mode='w', encoding='utf-8', newline='\n') as ostream:
+                    ostream.write(text)
+
+            text = yamlexp.connectivityModelText(c)
+            mkfile(filenames["connectivity"], text)
+
+            text = yamlexp.orderingModelText(o)
+            mkfile(filenames["numbering"], text)
+
+            if g is not None:
+                text = yamlexp.geometryModelText(g)
+                mkfile(filenames["geometry"], text)
+
+                text = yamlexp.userFramesModelText(g)
+                mkfile(filenames["user_frames"], text)
+            else:
+                del filenames["geometry"]
+                del filenames["user_frames"]
+
+            if i is not None:
+                text = yamlexp.inertiaModelText(i)
+                mkfile(filenames["inertia"], text)
+            else:
+                del filenames["inertia"]
+
+            if jlimits is not None:
+                text = yamlexp.jointLimitsModelText(jlimits)
+                mkfile(filenames["joint_limits"], text)
+            else:
+                del filenames["joint_limits"]
+
+            text = yamlexp.indexFileText(c, filenames)
+            mkfile(c.name+".yaml", text)
+
+            return
+
         elif oformat == 'kindsl' :
             try:
                 import robmodel.convert.kindsl.exp as kindslout
