@@ -3,7 +3,7 @@
 # Tree-joints do not need a code, while loop joints do (if there are loops).
 # Assigning a code to a joint means implicitly choosing it as a loop joint.
 
-robot: ur5
+model: ur5
 
 nums:
   base:     0

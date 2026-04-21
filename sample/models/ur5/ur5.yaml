@@ -1,4 +1,4 @@
-robot: ur5
+model: ur5
 
 connectivity: "./ur5-connect.yaml"
 numbering:    "./ur5-numbering.yaml"

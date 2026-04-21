@@ -1,4 +1,4 @@
-robot: ur5
+model: ur5
 
 # note these limits are arbitrary, they do not reflect the actual robot
 
