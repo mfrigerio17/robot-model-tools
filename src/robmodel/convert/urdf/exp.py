@@ -45,7 +45,7 @@ tpl = Template('''
     <!-- Dummy links/joints to model extra frames -->
 %if geometry is not None :
 <% dummyLinks = set() %>
-%for aframe in geometry.framesModel.userAttachedFrames:
+%for _,aframe in geometry.framesModel.userFrames.items():
     <link name="${aframe.entity.name}">
     </link>
 <% x,y,z,rx,ry,rz = jointParams(geometryModel=geometry, attachedFrame=aframe);  dummyLinks.add(aframe.entity.name) %>
