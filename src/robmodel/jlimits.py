@@ -30,3 +30,11 @@ class JointLimits:
     @property
     def byJoint(self):
         return self.limits
+
+    @property
+    def connectivityModel(self):
+        '''
+        The connectivity model this instance was constructed with
+        '''
+        return self.robot
+
