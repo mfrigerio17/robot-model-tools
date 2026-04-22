@@ -1,5 +1,6 @@
 import logging
 import numpy as np
+import numpy.linalg
 import dataclasses
 from mako.template import Template
 
@@ -25,12 +26,16 @@ tpl = Template('''
 <robot name="${robot.name}">
 %if inertia is not None :
     %for link in robot.links.values():
-<% m,cx,cy,cz,r,p,y,ixx,iyy,izz,ixy,ixz,iyz = linkInertia(link) %>
+<% m,cx,cy,cz,r,p,y,ixx,iyy,izz,ixy,ixz,iyz,rpy_nonzero = linkInertia(link) %>
     <link name="${link.name}">
         <inertial>
+%       if rpy_nonzero:
             <origin xyz="${tostr(cx)} ${tostr(cy)} ${tostr(cz)}" rpy="${tostr(r)} ${tostr(p)} ${tostr(y)}"/>
+%       else:
+            <origin xyz="${tostr(cx)} ${tostr(cy)} ${tostr(cz)}"/>
+%endif
             <mass value="${tostr(m)}"/>
-            <inertia ixx="${tostr(ixx)}"  ixy="${tostr(ixy)}"  ixz="${tostr(ixz)}" iyy="${tostr(iyy)}" iyz="${tostr(iyz)}" izz="${tostr(izz)}" />
+            <inertia ixx="${tostr(ixx)}" iyy="${tostr(iyy)}" izz="${tostr(izz)}" ixy="${tostr(ixy)}" ixz="${tostr(ixz)}" iyz="${tostr(iyz)}" />
         </inertial>
     </link>
     %endfor
@@ -147,47 +152,78 @@ def linkInertia(geometryModel, inertiaModel, link):
 
     com = np.array((props_in.com.x, props_in.com.y, props_in.com.z, 1))
     rpy = (0.0,0.0,0.0)
+    rpy_nonzero = False
+    linkFrame = geometryModel.framesModel.byLink[link]
 
     # Check if the CoM coordinates are not link-frame coordinates.
     # If not, we perform the roto-translation.
-    # The URDF wants the CoM in link-frame coordinates.
+    # The URDF wants the CoM position in link-frame coordinates.
     frame_com = props_in.com.frame
-    if frame_com.body  != link:
+    if frame_com.body != link:
+        logger.error( ("The frame of the CoM must be one "
+                       "attached to the corresponding link (the link is "
+                       "'%s', the frame is '%s' attached to '%s')"),
+                       link.name, frame_com.name, frame_com.body.name)
+        raise RuntimeError("URDF export: failed to convert inertia moments")
+    if frame_com != linkFrame:
         link_TR_comfr = robmodel.geometry.getPoseSpec(geometryModel, frame_com)
         if link_TR_comfr is None:
-            logger.error("Could not retrieve the pose of the source CoM frame '{}' relative to the frame of link '{}'"
-                .format(frame_com, link))
+            logger.error(("Could not retrieve the pose of the input CoM "
+                          "frame '%s' relative to the frame of link '%s'"),
+                            frame_com.name, link.name)
             raise RuntimeError("URDF export: failed to convert a CoM")
         link_CT_comfr = ct.frommotions.toCoordinateTransform( link_TR_comfr )
         link_H_comfr  = mxrepr.hCoordinatesNumeric.matrix_repr( link_CT_comfr )
-        com = np.matmult(link_H_comfr, com)
+        com = np.matmult(link_H_comfr, com) # CoM position in link-frame coordinates
 
-    # Similarly for the inertia moments.
+    # For the inertia moments...
     # If a custom frame is used for the source data, use its orientation to
     # determine the 'rpy' attribute in the URDF. There is no need to rotate the
     # inertia moments.
-    # In general, though, we need to translate them because the URDF wants them
-    # in a frame with origin at the CoM.
-    com__tr_moments = com[0:3] # default translation vector for the inertia moments
+    # In general, though, we need to translate them because the URDF wants
+    # the inertia moments about the CoM.
+    moments = props_in.moments
     frame_moments = props_in.moments.frame
     if frame_moments.body != link:
+        logger.error( ("The frame of the inertial moments must be one "
+                       "attached to the corresponding link (the link is "
+                       "'%s', the frame is '%s' attached to '%s')"),
+                       link.name, frame_moments.name, frame_moments.body.name)
+        raise RuntimeError("URDF export: failed to convert inertia moments")
+
+    if frame_moments == linkFrame:
+        # inertia moments are in link-framme coordinates
+        moments = utils.translateInertiaMoments(props_in.moments, props_in.mass, com)
+    else:
         link_TR_momentsfr = robmodel.geometry.getPoseSpec(geometryModel, frame_moments)
         if link_TR_momentsfr is None:
-            logger.error("Could not retrieve the pose of the source inertia moments frame '{}' relative to the frame of link '{}'"
-                .format(frame_com, link))
+            logger.error(("Could not retrieve the pose of frame '%s' "
+                          "relative to the frame of link '%s'"),
+                          frame_moments.name, link.name)
             raise RuntimeError("URDF export: failed to convert inertia moments")
-        link_CT_momentsfr = ct.frommotions.toCoordinateTransform(link_TR_momentsfr)
-        link_H_momentsfr  = mxrepr.hCoordinatesNumeric.matrix_repr(link_CT_momentsfr)
-        irx,iry,irz = utils.getIntrinsicXYZFromR(link_H_momentsfr)
-        rpy         = utils.intrinsic2extrinsic_XYZ(irx, iry, irz)
 
-        momentsfr_CT_link = ct.frommotions.toCoordinateTransform(link_TR_momentsfr, rigth_frame=geometryModel.framesModel.linkFrame[link])
-        momentsfr_H_link  = mxrepr.hCoordinatesNumeric.matrix_repr(momentsfr_CT_link)
-        com__tr_moments = momentsfr_H_link @ com
+        link_CT_momentsfr = ct.frommotions.toCoordinateTransform(link_TR_momentsfr, right_frame=frame_moments)
+        link_H_momentsfr  = mxrepr.hCoordinatesNumeric(link_CT_momentsfr)
+        irx,iry,irz       = utils.getIntrinsicXYZFromR(link_H_momentsfr)
+        trvec             = link_H_momentsfr[0:4,3]
 
-    moments = utils.translateInertiaMoments(props_in.moments, props_in.mass, com__tr_moments)
+        # I have no way to check symbolically whether the frame of the
+        # inertia moments is already the CoM frame. I do it numerically
+        already_in_com_frame = (abs(irx+iry+iry)<1e-5) and (np.linalg.norm(trvec-com)<1e-5)
+        if not already_in_com_frame:
+            rpy = utils.intrinsic2extrinsic_XYZ(irx, iry, irz)
+            rpy_nonzero = np.linalg.norm(rpy)>1e-5
+            momentsfr_CT_link = ct.frommotions.toCoordinateTransform(link_TR_momentsfr, rigth_frame=linkFrame)
+            momentsfr_H_link  = mxrepr.hCoordinatesNumeric.matrix_repr(momentsfr_CT_link)
 
-    return( props_in.mass, com[0], com[1], com[2], rpy[0], rpy[1], rpy[2], moments.ixx, moments.iyy, moments.izz, -moments.ixy, -moments.ixz, -moments.iyz)
+            # The position of the CoM relative to the origin of the
+            # moments-frame, in moments-frame coordinates
+            com__tr_moments = momentsfr_H_link @ com
+            moments = utils.translateInertiaMoments(props_in.moments, props_in.mass, com__tr_moments)
+
+    return( props_in.mass, com[0], com[1], com[2], rpy[0], rpy[1], rpy[2],
+        moments.ixx, moments.iyy, moments.izz, -moments.ixy, -moments.ixz, -moments.iyz,
+        rpy_nonzero)
 
 
 def ordering(orderingModel):
