@@ -250,7 +250,7 @@ def export(args):
             exit(-1)
     except Exception as e:
         log.error("Could not export the robot model: {}".format(e))
-        log.error(traceback.format_exc())
+        log.debug(traceback.format_exc())
         exit(-1)
 
 
@@ -293,8 +293,9 @@ def main():
     formatter = logging.Formatter('%(levelname)s (%(name)s) : %(message)s')
     handler = logging.StreamHandler()
     handler.setFormatter(formatter)
-    log.setLevel(logging.WARN)
-    log.addHandler(handler)
+    logger = logging.getLogger() # get the root one, to change settings across modules
+    logger.setLevel(logging.WARN)
+    logger.addHandler(handler)
 
     argparser = argparse.ArgumentParser(prog='rmt', description='Performs misceallaneous operations on robot models')
     argparser.add_argument('-v', '--verbose', dest='verbose', action='store_true', help='lower the logging level to DEBUG')
@@ -332,7 +333,7 @@ def main():
 
     args = argparser.parse_args()
     if args.verbose :
-        log.setLevel(logging.DEBUG)
+        logger.setLevel(logging.DEBUG)
 
     if hasattr(args, 'func') :
         args.func(args)
