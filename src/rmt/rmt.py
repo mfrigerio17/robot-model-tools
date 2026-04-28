@@ -1,4 +1,6 @@
 import os, sys, logging, argparse, traceback
+import importlib, importlib.util, pkgutil  # for plugin discovery
+
 import pathlib
 import networkx as nx
 import numpy as np
@@ -14,10 +16,20 @@ import rmt.load
 import rmt.kinematics
 import kgprim.values
 
+import rmt_plugins
+
 log = rmt.logger
 
+format_to_plugin = {}
 
-def getmodels(filepath, paramsFilePath=None, jlimsFilePath=None, floatLiteralsAsConstants=False, collapseFixedJoints=False, **kwargs):
+def getmodels(filepath, paramsFilePath=None, jlimsFilePath=None, floatLiteralsAsConstants=False, collapseFixedJoints=False, iformat=None, **kwargs):
+    if iformat in format_to_plugin.keys():
+        c,o,f,g,i,p,j = format_to_plugin[iformat].load_models(filepath, **kwargs)
+        p = p or {}  # parameter values
+        if collapseFixedJoints :
+            c,o,f,g,i = postproc.collapseFixedJoints(c,o,f,g,i)
+        return c,o,f,g,i,p,j
+
     connectivity = None
     ordering     = None
     frames       = None
@@ -329,6 +341,7 @@ def setRobotArgs(argparser):
     argparser.add_argument('-p', '--params', dest='params', metavar='params-file', help='YAML/JSON file with default parameter values')
     argparser.add_argument('-j', '--joint-limits', dest='jlims', metavar='jlims-file', help='YAML/JSON file with joint limits data')
     argparser.add_argument('-b', '--base', dest='baseLink', metavar='NAME', help='consider the link named NAME as the root (defaults to the true root of the input model')
+    argparser.add_argument('-i', '--iformat',  dest='iformat', metavar='IFMT', help='input model format (default: detect from extension)')
     argparser.add_argument('--ignore-fixed', dest='ignorefixed', action='store_true', help='ignore fixed joints when loading a model (might cause errors)')
     argparser.add_argument('--collapse-fixed', dest='collapsefixed', action='store_true', help='remove fixed joints and merge the rigid bodies, after loading the input model')
 
@@ -340,7 +353,26 @@ def getRobotOptsDict(parsed_arguments):
         'jlimsFilePath' : parsed_arguments.jlims,
         'baseLinkName' : parsed_arguments.baseLink,
         'collapseFixedJoints': parsed_arguments.collapsefixed,
+        'iformat' : parsed_arguments.iformat,
     }
+
+
+def loadPlugins():
+    # look for plugins in the namespace package "rmt_plugins"
+    # Python's API here is a joke
+    plugins = {}
+    for minfo, pkgname, ispkg in pkgutil.walk_packages(rmt_plugins.__path__, prefix=rmt_plugins.__name__+"."):
+        if ispkg:
+            pkg = importlib.import_module(pkgname)
+            aux = importlib.util.find_spec(".plugin", package=pkg.__name__)
+            if aux:
+                mod = importlib.import_module(".plugin", package=pkg.__name__)
+                if hasattr(mod, "model_format_id"):
+                    # the plugin is for a new robot-model format
+                    format_to_plugin[mod.model_format_id] = mod
+                plugins[pkg.__name__] = mod
+    return plugins
+
 
 def main():
     formatter = logging.Formatter('%(levelname)s (%(name)s) : %(message)s')
@@ -382,12 +414,21 @@ def main():
     parser = subparsers.add_parser('debug', parents=[commonArgsParser])
     parser.set_defaults(func=playground)
 
+    plugins = loadPlugins()
+    for p in plugins.values():
+        p.customize_cmdline_args(commonArgsParser, subparsers)
+
     args = argparser.parse_args()
     if args.verbose :
         logger.setLevel(logging.DEBUG)
 
+    logger.info("Discovered plugins: %s", " ".join([name for name in plugins.keys()]))
+
     if hasattr(args, 'func') :
         opts = getRobotOptsDict(args) # 'args' has fields for the options only if one of the subparsers got triggered; thus, do not move this outside of the 'if'
+        for p in plugins.values():
+            p.customize_options(args, opts)
+
         openStream = args.output is not None
         if args.func == export:
             openStream = openStream and (args.oformat != 'yaml')
