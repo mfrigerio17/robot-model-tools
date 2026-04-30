@@ -43,7 +43,7 @@ class URDFImportTests(unittest.TestCase):
         self.assertEqual(connectivity.nB, 3)
         self.assertEqual(connectivity.nJ, 2)
 
-        connectivity, ordering = importer.convert(urdf, dropFixedJoints=True)[0:2]
+        connectivity, ordering = importer.convert(urdf, ignoreFixedJoints=True)[0:2]
         self.assertEqual(connectivity.nB, 2)
         self.assertEqual(connectivity.nJ, 1)
 
