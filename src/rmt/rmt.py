@@ -117,11 +117,11 @@ def defpose(args):
     print(np.round(H,5), file=args.ofstream)
 
 def printinfo(args):
-    c,o,f,g,i = getmodels(args.robot)[0:5]
+    c,o,f,g,i = getmodels(args.robot, ignoreFixedJoints=args.ignorefixed)[0:5]
     print(c,o,f,g,i, file=args.ofstream)
 
 def writeDOTFile(args):
-    connectivity = getmodels(args.robot)[0]
+    connectivity = getmodels(args.robot, ignoreFixedJoints=args.ignorefixed)[0]
     # Convert the graph to AGraph format used by pygraphviz
     ag = nx.nx_agraph.to_agraph( connectivity.graph )
     # Add the edge labels (joint names), to have them displayed
@@ -132,7 +132,7 @@ def writeDOTFile(args):
 
 
 def writeMotDSLFile(args):
-    robot,frames,geometry = getmodels(args.robot, args.params)[1:4]
+    robot,frames,geometry = getmodels(args.robot, args.params, ignoreFixedJoints=args.ignorefixed)[1:4]
     jointPoses = robmodel.jposes.JointPoses(robot, frames, geometry.jointAxes)
     robotKin   = rmt.kinematics.RobotKinematics(geometry, jointPoses)
     rmt.kinematics.serializeToMotionDSLModel(robotKin, args.ofstream)
@@ -194,7 +194,8 @@ def _resolve_iparameters(inertiaModel, parametersValues):
 def export(args):
     c,o,f,g,i,params,jlimits = getmodels(args.robot,
                                 paramsFilePath = args.params,
-                                jlimsFilePath  = args.jlims)[0:7]
+                                jlimsFilePath  = args.jlims,
+                                ignoreFixedJoints = args.ignorefixed)[0:7]
     oformat = args.oformat
 
     if oformat is None: oformat = 'yaml'
@@ -314,6 +315,8 @@ def setRobotArgs(argparser):
     argparser.add_argument('robot', metavar='robot-model', help='the robot model input file')
     argparser.add_argument('-p', '--params', dest='params', metavar='params-file', default=None, help='YAML/JSON file with default parameter values')
     argparser.add_argument('-j', '--joint-limits', dest='jlims', metavar='jlims-file', default=None, help='YAML/JSON file with joint limits data')
+    argparser.add_argument('--ignore-fixed', dest='ignorefixed', action='store_true', help='ignore fixed joints when loading a model (might cause errors)')
+
 
 def main():
     formatter = logging.Formatter('%(levelname)s (%(name)s) : %(message)s')
