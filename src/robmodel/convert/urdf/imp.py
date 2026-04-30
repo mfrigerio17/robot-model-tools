@@ -197,7 +197,7 @@ def linkFrameToJointFrameInURDF(urdfjoint):
 
 
 
-def convert( urdf, dropFixedJoints=False, **kwargs) :
+def convert( urdf, ignoreFixedJoints=False, **kwargs) :
     '''
     Reads the model from a URDFWrapper instance, and construct the corresponding
     models in our format.
@@ -232,7 +232,7 @@ def convert( urdf, dropFixedJoints=False, **kwargs) :
             # 'jkind' remains a string
             logger.warning("Unknown joint type '{}' for joint '{}'. Storing the string value rather than the enum item".format(jkind, jname))
 
-        if not (jkind==JointKind.fixed and dropFixedJoints):
+        if not (jkind==JointKind.fixed and ignoreFixedJoints):
             joint  = robmodel.connectivity.Joint(name, jkind)
             parent = linksPool.setdefault(urdfjoint.parent, robmodel.connectivity.Link(urdfjoint.parent))
             child  = linksPool.setdefault(urdfjoint.child , robmodel.connectivity.Link(urdfjoint.child ))
