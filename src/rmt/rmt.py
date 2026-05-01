@@ -276,7 +276,8 @@ def export(args):
                     poseSpecModel = motdsl.toPosesSpecification(model)
                     _resolve_parameters(poseSpecModel.poses, params)
                     extraPoses = poseSpecModel.poses
-                text = urdfout.modelText(g, i, jointLimits=jlimits, userExtraPoses=extraPoses)
+                text = urdfout.modelText(g, i, jointLimits=jlimits,
+                    userExtraPoses=extraPoses, includeDummies=not args.noextra)
             elif o is None:
                 log.error("Cannot export a URDF if the input model does not even include ordering")
                 exit(-1)
@@ -350,6 +351,7 @@ def main():
     parser = subparsers.add_parser('exp', parents=[commonArgsParser], help='Export the input model to a different format (experimental - work in progress)')
     parser.add_argument('-f', '--format',   dest='oformat', metavar='FMT', help='desired output format: {yaml,kindsl,urdf} (default: yaml)')
     parser.add_argument('-e', '--extra-poses',  dest='extraposes', metavar='FILE', help='add extra dummy joints/links to the exported URDF, for each pose in the given MotionDSL document')
+    parser.add_argument('--no-extra',  dest='noextra', action='store_true', help='skip fixed joints for extra user frames when exporting (to URDF)')
     parser.set_defaults(func=export)
 
     parser = subparsers.add_parser('debug', parents=[commonArgsParser])
