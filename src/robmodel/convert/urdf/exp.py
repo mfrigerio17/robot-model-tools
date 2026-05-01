@@ -87,7 +87,6 @@ tpl = Template('''
 
 %for joint in robot.joints.values():
     <joint name="${joint.name}" type="${jointKind(joint)}">
-<% jlim = jlimits.byJoint[joint] %>
 %if geometry is not None :
 <% x,y,z,rx,ry,rz = jointParams(geometryModel=geometry, joint=joint) %>
         <origin xyz="${tostr(x)} ${tostr(y)} ${tostr(z)}" rpy="${tostr(rx)} ${tostr(ry)} ${tostr(rz)}"/>
@@ -96,7 +95,10 @@ tpl = Template('''
 %endif
         <parent link="${robot.predecessor(joint).name}"/>
         <child  link="${robot.successor  (joint).name}"/>
+%if jointKind(joint) != "fixed" :
+<% jlim = jointLimits(joint) %>
         <limit effort="${jlim.force}" velocity="${jlim.velocity}" lower="${jlim.lower_pos}" upper="${jlim.upper_pos}" />
+%endif
     </joint>
 
 % endfor
@@ -244,12 +246,20 @@ def modelText(geometryModel, inertiaModel=None, userExtraPoses=None, jointLimits
                      for joint in geometryModel.connectivityModel.joints.keys()}
         jointLimits = robmodel.jlimits.JointLimits(geometryModel.connectivityModel, limits)
 
+    def jLimits(joint):
+        nonlocal jointLimits
+        data = jointLimits.byJoint.get(joint)
+        if data is None:
+            logger.warning("no limits data for joint '%s'", joint.name)
+            data = robmodel.jlimits.JointLimit()
+        return data
+
     formatter = utils.FloatsFormatter()
     return tpl.render(
         robot=geometryModel.connectivityModel,
         geometry=geometryModel,
         inertia=inertiaModel,
-        jlimits=jointLimits,
+        jointLimits=jLimits,
         extraPoses=userExtraPoses,
         jointParams=jointOrigin,
         jointKind = jointKind,
