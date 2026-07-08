@@ -342,8 +342,11 @@ def convert( urdf, ignoreFixedJoints=False, **kwargs) :
 
 
     # JOINT LIMITS
-    jlimits_data = {jname : dataclasses.asdict(urdf.joints[jname].limits)
-                        for jname in orderedModel.joints }
+    jlimits_data = {}
+    for jname in orderedModel.joints :
+        if urdf.joints[jname].limits is not None:
+            jlimits_data[jname] = dataclasses.asdict(urdf.joints[jname].limits)
+
     limitsModel = robmodel.jlimits.JointLimits(orderedModel, jlimits_data)
 
     return connectivityModel, orderedModel, framesModel, geometryModel, inertiaModel, limitsModel
