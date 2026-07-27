@@ -114,11 +114,11 @@ def defpose(args):
     if H is None :
         log.error("Could not compute the frame pose")
         exit(-1)
-    print(np.round(H,5))
+    print(np.round(H,5), file=args.ofstream)
 
 def printinfo(args):
     c,o,f,g,i = getmodels(args.robot)[0:5]
-    print(c,o,f,g,i)
+    print(c,o,f,g,i, file=args.ofstream)
 
 def writeDOTFile(args):
     connectivity = getmodels(args.robot)[0]
@@ -127,26 +127,16 @@ def writeDOTFile(args):
     # Add the edge labels (joint names), to have them displayed
     for e in ag.edges() :
         e.attr['label'] = e.attr['joint']
-    ag.write(args.outdot)
+    ag.write(args.ofstream)
     return ag
 
-def writeMotDSLFile(args):
-    ostream = sys.stdout
-    closeOstream = False
-    if args.outmotdsl is not None :
-        try:
-            ostream = open(args.outmotdsl, mode='w', encoding='utf-8', newline='\n')
-            closeOstream = True
-        except IOError :
-            log.warning("Could not open file '{0}'".format(args.outmotdsl))
 
+def writeMotDSLFile(args):
     robot,frames,geometry = getmodels(args.robot, args.params)[1:4]
     jointPoses = robmodel.jposes.JointPoses(robot, frames, geometry.jointAxes)
     robotKin   = rmt.kinematics.RobotKinematics(geometry, jointPoses)
-    rmt.kinematics.serializeToMotionDSLModel(robotKin, ostream)
+    rmt.kinematics.serializeToMotionDSLModel(robotKin, args.ofstream)
 
-    if closeOstream :
-        ostream.close()
 
 
 
@@ -213,8 +203,9 @@ def export(args):
         if oformat == 'yaml' :
             import robmodel.convert.yaml.exp as yamlexp
             log.warning('Work-in-progress')
-
-            outpath = pathlib.Path(args.outfile).resolve()
+            if (args.output is None):
+                raise RuntimeError("must pass some output folder when exporting to yaml")
+            outpath = pathlib.Path(args.output).resolve()
             filenames = yamlexp.model_kind_to_file_name_defaults.copy()
             def mkfile(name, content):
                 with open(outpath / name,  mode='w', encoding='utf-8', newline='\n') as ostream:
@@ -293,23 +284,13 @@ def export(args):
         else :
             log.error("Unknown robot model format '{0}'".format(oformat))
             exit(-1)
+
+        args.ofstream.write(text)
     except Exception as e:
         log.error("Could not export the robot model: {}".format(e))
         log.debug(traceback.format_exc())
         exit(-1)
 
-
-    if args.outfile is not None :
-        try:
-            ostream = open(args.outfile,  mode='w', encoding='utf-8', newline='\n')
-            ostream.write(text)
-            ostream.close()
-        except Exception as e :
-            log.error("Could not write to file '{0}': {1}".format(args.outfile, e))
-            exit(-1)
-    else:
-        sys.stdout.write(text)
-        # do not close() sys.stdout :)
 
 def playground(args):
     c,o,f,geometry,inertia,params,jlimits = getmodels(args.robot,
@@ -346,34 +327,29 @@ def main():
     argparser.add_argument('-v', '--verbose', dest='verbose', action='store_true', help='lower the logging level to DEBUG')
     subparsers= argparser.add_subparsers()
 
-    parser = subparsers.add_parser('defpose', help="Print the pose of a frame relative to the base frame, assuming the zero-configuration of the robot")
-    setRobotArgs(parser)
+    commonArgsParser = argparse.ArgumentParser(add_help=False)
+    setRobotArgs(commonArgsParser)
+    commonArgsParser.add_argument('-o', '--output', dest='output', metavar='FILE', help='output file/folder - defaults to stdout')
+
+    parser = subparsers.add_parser('defpose', parents=[commonArgsParser], help="Print the pose of a frame relative to the base frame, assuming the zero-configuration of the robot")
     parser.add_argument('frame', metavar='frame', help='the name of the frame whose pose is of interest')
     parser.set_defaults(func=defpose)
 
-    parser = subparsers.add_parser('print', help='Dump to stdout some serialization of the robot model components')
-    setRobotArgs(parser)
+    parser = subparsers.add_parser('print', parents=[commonArgsParser], help='Print some serialization of the robot model components')
     parser.set_defaults(func=printinfo)
 
-    parser = subparsers.add_parser('dot', help='Generate the connectivity graph of the robot model in DOT format (requires pygraphviz)')
-    setRobotArgs(parser)
-    parser.add_argument('-o', '--out-file', dest='outdot', metavar='FILE', default='robot.dot', help='the output .dot file')
+    parser = subparsers.add_parser('dot', parents=[commonArgsParser], help='Generate the connectivity graph of the robot model in DOT format (requires pygraphviz)')
     parser.set_defaults(func=writeDOTFile)
 
-    parser = subparsers.add_parser('motdsl', help='Generate the Motion-DSL model corresponding to the kinematics of the robot model')
-    setRobotArgs(parser)
-    parser.add_argument('-o', '--out-file', dest='outmotdsl', metavar='FILE', help='the output .motdsl file - defaults to stdout')
+    parser = subparsers.add_parser('motdsl', parents=[commonArgsParser], help='Generate the Motion-DSL model corresponding to the kinematics of the robot model')
     parser.set_defaults(func=writeMotDSLFile)
 
-    parser = subparsers.add_parser('exp', help='Export the input model to a different format (experimental - work in progress)')
-    setRobotArgs(parser)
+    parser = subparsers.add_parser('exp', parents=[commonArgsParser], help='Export the input model to a different format (experimental - work in progress)')
     parser.add_argument('-f', '--format',   dest='oformat', metavar='FMT', help='desired output format: {yaml,kindsl,urdf} (default: yaml)')
-    parser.add_argument('-o', '--out-file', dest='outfile', metavar='FILE', help='the output file - defaults to stdout')
     parser.add_argument('-e', '--extra-poses',  dest='extraposes', metavar='FILE', help='add extra dummy joints/links to the exported URDF, for each pose in the given MotionDSL document')
     parser.set_defaults(func=export)
 
-    parser = subparsers.add_parser('debug')
-    setRobotArgs(parser)
+    parser = subparsers.add_parser('debug', parents=[commonArgsParser])
     parser.set_defaults(func=playground)
 
     args = argparser.parse_args()
@@ -381,6 +357,18 @@ def main():
         logger.setLevel(logging.DEBUG)
 
     if hasattr(args, 'func') :
-        args.func(args)
+        openStream = args.output is not None
+        if args.func == export:
+            openStream = openStream and (args.oformat != 'yaml')
+            # export to yaml interprets the output argument as a directory,
+
+        if openStream:
+            with open(args.output, mode='w', encoding='utf-8', newline='\n') as ostream:
+                args.ofstream = ostream
+                args.func(args)
+        else:
+            # no output argument given, we default to stdout
+            args.ofstream = sys.stdout # fine even when exporting yaml
+            args.func(args)
     else :
         argparser.print_usage()
