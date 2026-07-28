@@ -4,7 +4,7 @@ import networkx as nx
 import numpy as np
 
 import robmodel.convert.urdf.imp as urdfin
-
+import robmodel.connectivity
 import robmodel.inertia
 import robmodel.jposes
 import robmodel.jlimits
@@ -126,9 +126,16 @@ def writeDOTFile(args, opts):
     connectivity = getmodels(args.robot, **opts)[0]
     # Convert the graph to AGraph format used by pygraphviz
     ag = nx.nx_agraph.to_agraph( connectivity.graph )
+
     # Add the edge labels (joint names), to have them displayed
     for e in ag.edges() :
         e.attr['label'] = e.attr['joint']
+
+    if args.colorfixed:
+        for e in ag.edges():
+            if connectivity.joints[e.attr['joint']].kind == robmodel.connectivity.JointKind.fixed:
+                e.attr['color'] = 'deeppink'
+                e.attr['penwidth'] = '3'
     ag.write(args.ofstream)
     return ag
 
@@ -347,6 +354,7 @@ def main():
     parser.set_defaults(func=printinfo)
 
     parser = subparsers.add_parser('dot', parents=[commonArgsParser], help='Generate the connectivity graph of the robot model in DOT format (requires pygraphviz)')
+    parser.add_argument('-f', '--color-fixed', dest='colorfixed', action='store_true', help='use a color to highlight fixed joints')
     parser.set_defaults(func=writeDOTFile)
 
     parser = subparsers.add_parser('motdsl', parents=[commonArgsParser], help='Generate the Motion-DSL model corresponding to the kinematics of the robot model')
