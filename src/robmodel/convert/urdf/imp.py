@@ -251,27 +251,18 @@ def convert( urdf, ignoreFixedJoints=False, **kwargs) :
     robotBase = orphans[0]
     code = 1
     numbering = {}
-    fixedLinks = []
     def setCode(currentLink, parent):
-        nonlocal code, numbering, fixedLinks
+        nonlocal code, numbering
         joint = connectivityModel.linkPairToJoint(
             connectivityModel.links[currentLink], connectivityModel.links[parent])
-        if joint.kind == JointKind.fixed :
-            fixedLinks.append(currentLink)
-        else:
-            numbering[currentLink] = code
-            code = code + 1
+        numbering[currentLink] = code
+        code = code + 1
         for child in children.get(currentLink, []) :
             setCode( child, currentLink )
 
     numbering[robotBase] = 0
     for child in children.get(robotBase, []) :
         setCode( child, robotBase )
-
-    if not dropFixedJoints:
-        for fl in fixedLinks :
-            numbering[fl] = code
-            code = code + 1
 
     ordering = { 'robot': robotName, 'nums' : numbering }
     orderedModel = robmodel.ordering.Robot(connectivityModel, ordering)
