@@ -62,14 +62,16 @@ class Robot(robmodel.connectivity.Robot):
         self.itemNameToCode = nums
         self.codeToLink = {nums[l.name] : l for l in robotm.links.values() }
 
+        self._loopJoints = {}
         self.codeToJoint = {}
         self.jointToCode = {}
         for joint in robotm.joints.values() :
-            # If there is an entry for a joint, it means that was selected as
+            # If there is an entry for a joint, it means that it was selected as
             # a loop joint
             if joint.name in nums:
                 self.jointToCode[ joint ] = nums[joint.name]
                 self.codeToJoint[ nums[joint.name] ] = joint
+                self._loopJoints[joint.name] = joint
             else :
                 # Otherwise it is a tree joint, and it gets the highest code
                 # among the codes of the two links of its pair
@@ -115,6 +117,11 @@ class Robot(robmodel.connectivity.Robot):
     def predecessor(self, joint): return self.orderedPairs[joint][0]
 
     def successor(self, joint): return self.orderedPairs[joint][1]
+
+    @property
+    def loopJoints(self):
+        '''By-name dictionary of the loop joints of this model'''
+        return self._loopJoints
 
     def __getattr__(self, name):
         return getattr(self.connectivity, name)
