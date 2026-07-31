@@ -106,8 +106,9 @@ def getmodels(filepath, paramsFilePath=None, jlimsFilePath=None, floatLiteralsAs
 
     return connectivity, ordering, frames, geometry, inertia, params, jlimits
 
-def defpose(args):
-    robot,frames,geometry,_,paramsValues = getmodels(args.robot, args.params)[1:6]
+
+def defpose(args, opts):
+    robot,frames,geometry,_,paramsValues = getmodels(args.robot, **opts)[1:6]
     jointPoses = robmodel.jposes.JointPoses(robot, frames, geometry.jointAxes)
     kin = rmt.kinematics.RobotKinematics(geometry, jointPoses)
     H = rmt.kinematics.base_H_ee(kin, args.frame, paramsValues)
@@ -116,12 +117,13 @@ def defpose(args):
         exit(-1)
     print(np.round(H,5), file=args.ofstream)
 
-def printinfo(args):
-    c,o,f,g,i = getmodels(args.robot, ignoreFixedJoints=args.ignorefixed)[0:5]
+
+def printinfo(args, opts):
+    c,o,f,g,i = getmodels(args.robot, **opts)[0:5]
     print(c,o,f,g,i, file=args.ofstream)
 
-def writeDOTFile(args):
-    connectivity = getmodels(args.robot, ignoreFixedJoints=args.ignorefixed)[0]
+def writeDOTFile(args, opts):
+    connectivity = getmodels(args.robot, **opts)[0]
     # Convert the graph to AGraph format used by pygraphviz
     ag = nx.nx_agraph.to_agraph( connectivity.graph )
     # Add the edge labels (joint names), to have them displayed
@@ -131,8 +133,8 @@ def writeDOTFile(args):
     return ag
 
 
-def writeMotDSLFile(args):
-    robot,frames,geometry = getmodels(args.robot, args.params, ignoreFixedJoints=args.ignorefixed)[1:4]
+def writeMotDSLFile(args, opts):
+    robot,frames,geometry = getmodels(args.robot, **opts)[1:4]
     jointPoses = robmodel.jposes.JointPoses(robot, frames, geometry.jointAxes)
     robotKin   = rmt.kinematics.RobotKinematics(geometry, jointPoses)
     rmt.kinematics.serializeToMotionDSLModel(robotKin, args.ofstream)
@@ -191,11 +193,9 @@ def _resolve_iparameters(inertiaModel, parametersValues):
             inertia.moments.iyz = _resolve_param(inertia.moments.iyz, parametersValues, asFloat=True)
             inertia.moments.izz = _resolve_param(inertia.moments.izz, parametersValues, asFloat=True)
 
-def export(args):
-    c,o,f,g,i,params,jlimits = getmodels(args.robot,
-                                paramsFilePath = args.params,
-                                jlimsFilePath  = args.jlims,
-                                ignoreFixedJoints = args.ignorefixed)[0:7]
+
+def export(args, opts):
+    c,o,f,g,i,params,jlimits = getmodels(args.robot, **opts)[0:7]
     oformat = args.oformat
 
     if oformat is None: oformat = 'yaml'
@@ -294,11 +294,9 @@ def export(args):
         exit(-1)
 
 
-def playground(args):
-    c,o,f,geometry,inertia,params,jlimits = getmodels(args.robot,
-                                        paramsFilePath = args.params,
-                                        jlimsFilePath  = args.jlims,
-                                        floatLiteralsAsConstants=True)[0:7]
+
+def playground(args, opts):
+    c,o,f,geometry,inertia,params,jlimits = getmodels(args.robot, **opts)[0:7]
     for link in c.links.values() :
         ip = inertia.byLink(link)
         if ip is not None:
@@ -318,6 +316,12 @@ def setRobotArgs(argparser):
     argparser.add_argument('-j', '--joint-limits', dest='jlims', metavar='jlims-file', default=None, help='YAML/JSON file with joint limits data')
     argparser.add_argument('--ignore-fixed', dest='ignorefixed', action='store_true', help='ignore fixed joints when loading a model (might cause errors)')
 
+def optsDict(parsed_arguments):
+    return {
+        'ignoreFixedJoints' : parsed_arguments.ignorefixed,
+        'paramsFilePath': parsed_arguments.params,
+        'jlimsFilePath' : parsed_arguments.jlims,
+    }
 
 def main():
     formatter = logging.Formatter('%(levelname)s (%(name)s) : %(message)s')
@@ -360,6 +364,7 @@ def main():
     args = argparser.parse_args()
     if args.verbose :
         logger.setLevel(logging.DEBUG)
+    opts = optsDict(args)
 
     if hasattr(args, 'func') :
         openStream = args.output is not None
@@ -370,10 +375,10 @@ def main():
         if openStream:
             with open(args.output, mode='w', encoding='utf-8', newline='\n') as ostream:
                 args.ofstream = ostream
-                args.func(args)
+                args.func(args, opts)
         else:
             # no output argument given, we default to stdout
             args.ofstream = sys.stdout # fine even when exporting yaml
-            args.func(args)
+            args.func(args, opts)
     else :
         argparser.print_usage()
