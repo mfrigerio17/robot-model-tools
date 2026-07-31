@@ -4,6 +4,7 @@ import networkx as nx
 import numpy as np
 
 import robmodel.convert.urdf.imp as urdfin
+import robmodel.convert.postproc as postproc
 import robmodel.connectivity
 import robmodel.inertia
 import robmodel.jposes
@@ -16,7 +17,7 @@ import kgprim.values
 log = rmt.logger
 
 
-def getmodels(filepath, paramsFilePath=None, jlimsFilePath=None, floatLiteralsAsConstants=False, **kwargs):
+def getmodels(filepath, paramsFilePath=None, jlimsFilePath=None, floatLiteralsAsConstants=False, collapseFixedJoints=False, **kwargs):
     connectivity = None
     ordering     = None
     frames       = None
@@ -103,6 +104,10 @@ def getmodels(filepath, paramsFilePath=None, jlimsFilePath=None, floatLiteralsAs
 
     if jlimsFilePath is not None:
         jlimits = rmt.load.jointLimits(jlimsFilePath, connectivity)
+
+    if collapseFixedJoints :
+        connectivity, ordering, frames, geometry, inertia = postproc.collapseFixedJoints(
+                connectivity, ordering, frames, geometry, inertia)
 
     return connectivity, ordering, frames, geometry, inertia, params, jlimits
 
@@ -315,17 +320,8 @@ def export(args, opts):
 
 def playground(args, opts):
     c,o,f,geometry,inertia,params,jlimits = getmodels(args.robot, **opts)[0:7]
-    for link in c.links.values() :
-        ip = inertia.byLink(link)
-        if ip is not None:
-            print(ip.mass)
-
-    for pose in geometry.posesModel.poses :
-        for m in pose.motion.steps:
-            print(m)
-
-    for name,limits in jlimits.byJoint.items():
-        print(name,limits)
+    connectivity, ordering, frames, geometry, inertia = postproc.collapseFixedJoints(
+        c, o, f, geometry, inertia)
 
 
 def setRobotArgs(argparser):
@@ -334,6 +330,8 @@ def setRobotArgs(argparser):
     argparser.add_argument('-j', '--joint-limits', dest='jlims', metavar='jlims-file', default=None, help='YAML/JSON file with joint limits data')
     argparser.add_argument('-b', '--base', dest='baseLink', metavar='NAME', help='consider the link named NAME as the root (defaults to the true root of the input model')
     argparser.add_argument('--ignore-fixed', dest='ignorefixed', action='store_true', help='ignore fixed joints when loading a model (might cause errors)')
+    argparser.add_argument('--collapse-fixed', dest='collapsefixed', action='store_true', help='remove fixed joints and merge the rigid bodies, after loading the input model')
+
 
 def optsDict(parsed_arguments):
     return {
@@ -341,6 +339,7 @@ def optsDict(parsed_arguments):
         'paramsFilePath': parsed_arguments.params,
         'jlimsFilePath' : parsed_arguments.jlims,
         'baseLinkName' : parsed_arguments.baseLink,
+        'collapseFixedJoints': parsed_arguments.collapsefixed,
     }
 
 def main():
