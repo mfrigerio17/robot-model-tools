@@ -10,8 +10,9 @@ a specific convention about the attachment of frames:
   located with respect to the main reference frame.
 '''
 
-import enum
+import enum, itertools
 import kgprim.core as primitives
+from robmodel import logger
 
 
 class FrameRole(enum.Enum):
@@ -76,13 +77,6 @@ import networkx as nx
 
 class RobotDefaultFrames():
 
-    def path(self, frame1, frame2):
-        return nx.shortest_path(self.graph, frame1, frame2)
-
-
-    def isIdentity(self, frame1, frame2):
-        return self._edge(frame1, frame2)['identity']
-
     def kind(self, frame1, frame2):
         return self._edge(frame1, frame2)['kind']
 
@@ -114,6 +108,8 @@ class RobotDefaultFrames():
 
         - `robot`: a `robmodel.ordering.Robot` instance, that is, a connectivity
           model with an associated numbering
+        - `userAttachedFrames`: a container of `kgprim.core.Attachment` instances
+          representing additional, custom frames attached to the robot
         '''
         if not hasattr(robot, 'dgraph') :
             raise RuntimeError('''The default-framesModel model can only be
@@ -123,6 +119,7 @@ class RobotDefaultFrames():
         self.linkFrames  = {}
         self.jointFrames = {}
         self.framesByName= {}
+        self.framesByCarrier = {link:[] for link in robot.links.values()}
         self._userFrames  = {}
         self._makeGraph(userAttachedFrames)
 
@@ -153,6 +150,7 @@ class RobotDefaultFrames():
 
             self.linkFrames[link] = frame
             self.framesByName[frame.name] = frame
+            self.framesByCarrier[link].append(frame)
 
         for joint in self.robot.joints.values() :
             pre = self.robot.predecessor(joint)
@@ -160,21 +158,25 @@ class RobotDefaultFrames():
             lf2 = self.linkFrames[ self.robot.successor(joint) ]
             jf1 = self._linkJointFrame(pre, joint)
             graph.add_node( jf1, joint=joint )
-            graph.add_edge(lf1, jf1, kind=FrameRelationKind.linkJoint, identity=False)
+            graph.add_edge(lf1, jf1, kind=FrameRelationKind.linkJoint)
             graph.add_edge( jf1, lf2,
                             kind=FrameRelationKind.acrossJoint,
-                            joint=joint,
-                            identity=False)
+                            joint=joint)
             self.framesByName[jf1.name] = jf1
             self.jointFrames[ joint ] = jf1
+            self.framesByCarrier[pre].append(jf1)
 
         for userFrame in userAttachedFrames :
-            userFrame.attrs['role'] = FrameRole.user
-            graph.add_node( userFrame )
             link = userFrame.body  # a property of primitives.Attachment
-            graph.add_edge( self.linkFrames[link], userFrame, kind=FrameRelationKind.generic )
-            self.framesByName[ userFrame.name ] = userFrame
-            self._userFrames[ userFrame.name ] = userFrame
+            if link.name not in self.robot.links:
+                logger.warning("body %s - to which frame %s is attached - is not a robot link", link.name, userFrame.name)
+            else:
+                userFrame.attrs['role'] = FrameRole.user
+                graph.add_node( userFrame )
+                graph.add_edge( self.linkFrames[link], userFrame, kind=FrameRelationKind.generic )
+                self.framesByName[ userFrame.name ] = userFrame
+                self._userFrames[ userFrame.name ] = userFrame
+                self.framesByCarrier[link].append(userFrame)
 
         self.graph = graph
         return graph
@@ -211,3 +213,8 @@ class RobotDefaultFrames():
         '''A by-name dictionary of the custom Frames given to the constructor'''
         return self._userFrames
 
+    def attachedTo(self, link):
+        return self.framesByCarrier.get(link, [])
+
+    def path(self, frame1, frame2):
+        return nx.shortest_path(self.graph, frame1, frame2)
