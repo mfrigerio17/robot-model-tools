@@ -17,9 +17,7 @@ class Geometry:
     A model of the geometry of a multi-rigid-body mechanism.
 
     The geometry model consists of a set of constant relative poses between
-    reference frames attached to the mechanism. The `reference` of any pose must
-    always be a link frame; the `target` is a joint frame or an arbitrary user
-    frame.
+    reference frames attached to the mechanism.
 
     This class relies on `kgprim.motions.PosesSpec`, and purely performs various
     consistency checks between the given models.
@@ -44,12 +42,17 @@ class Geometry:
         sure that the three arguments are consistent and therefore can be
         composed as a whole.
 
-        In fact, the poses model stored in this instance is not the given
-        `posesModel`. The input poses are always replaced by poses pointing to
-        objects of `framesModel`. This is because the frames in the given
-        `posesModel` might be simple placeholders. The name of the frame is used
-        to establish the correspondence between a placeholder frame and a
-        robot-attached frame.
+        The reference and target of any given pose must be frames attached to
+        the same link of the mechanism, so that the pose itself is a constant.
+        The reference of pose P need not be the default link frame F, as long
+        as the pose of P's target relative to F can be inferred by the other
+        relations (for example, the input data may be F1 wrt F, F2 wrt F1,
+        F3 wrt F2; but F, F1, F2, F3 must all be attached to the same link).
+
+        In fact, the frames in the given `posesModel` might be simple placeholders.
+        The frame name is used to fetch the intended robot-attached frame from
+        the given `framesModel`. The given poses are not stored in this instance,
+        which instead stores poses referring to attached frames.
 
         The `jointAxes` argument defaults to `None`. In that case it is assumed
         that the axis of any joint is the Z axis of its frame. Otherwise, the
@@ -69,12 +72,12 @@ class Geometry:
             ignore = False
             pose = poseSpec.pose
 
-            warnmsg = '''Frame '{0}' not found on the given frames-model '{1}', ignoring'''
+            warnmsg = '''Frame '%s' not found on the given frames-model '%s', ignoring'''
             if pose.target.name not in framesModel.framesByName :
-                logger.warning(warnmsg.format(pose.target.name, rname))
+                logger.warning(warnmsg, pose.target.name, rname)
                 ignore = True
             if pose.reference.name not in framesModel.framesByName :
-                logger.warning(warnmsg.format(pose.reference.name, rname))
+                logger.warning(warnmsg, pose.reference.name, rname)
                 ignore = True
 
             if not ignore:
@@ -84,13 +87,9 @@ class Geometry:
                 tgtF = framesModel.framesByName[ pose.target.name ]
                 refF = framesModel.framesByName[ pose.reference.name ]
 
-                if framesModel.frameRole(refF) is not frames.FrameRole.linkRef:
-                    logger.warning( ("Ignoring pose ({}) whose reference frame "
-                                     "is not a link frame")
-                                    .format(pose))
-                elif tgtF.body != refF.body :
-                    logger.warning( ("Ignoring pose ({}) whose frames are not "
-                                     "attached to the same link").format(pose) )
+                if tgtF.body != refF.body :
+                    logger.warning( "Ignoring pose '%s' whose frames are not "
+                                    "attached to the same link", pose )
                 else:
                     # Rebuild the Pose instance with the frames from the frames
                     # model, which are attached to links
@@ -101,15 +100,26 @@ class Geometry:
                     #print( poseSpec.motion.steps, "\n\n")
 
         # We iterate over joints and fetch the predecessor, as the joint_wrt_predecessor
-        # is a constant pose also for loop joints.
+        # is a constant pose (also for loop joints).
+        inspector = motions.ConnectedFramesInspector(motions.PosesSpec("temporary", list(self.byPose.values())))
         self.byJoint = {}
         for joint in connectModel.joints.values() :
             predFrame = framesModel.linkFrames [ connectModel.predecessor(joint) ]
             jointFrame= framesModel.jointFrames[ joint ]
             pose = Pose(target=jointFrame, reference=predFrame)
             if pose not in self.byPose :
-                logger.warning("The geometry model does not seem to have information about the pose of '{0}' wrt '{1}'".format(
-                    jointFrame.name, predFrame.name))
+                logger.info("No explicit data for the pose of joint frame '%s' wrt link frame '%s'",
+                    jointFrame.name, predFrame.name)
+                inferred = inspector.getPoseSpec(targetFrame=jointFrame, referenceFrame=predFrame)
+                if inferred is not None:
+                    self.byJoint[joint] = inferred
+                    self.byPose[inferred.pose] = inferred
+                    # Note that this will make a loop in the frames graph, because we are storing an
+                    # explicit pose (i.e. an edge) between two frames that are connected already
+                    # (otherwise the inspector would have not found the pose)
+                else:
+                   logger.error("Could not determine the pose of joint frame '%s' wrt link frame '%s'",
+                        jointFrame.name, predFrame.name)
             else :
                 self.byJoint[joint] = self.byPose[pose]
 
@@ -120,6 +130,8 @@ class Geometry:
         # model whose poses reference robot attached frames. As said before, the
         # PosesSpec model given to the constructor might have poses that refer
         # to the un-attached frames.
+
+        self.framesPathFinder =motions.ConnectedFramesInspector(self.poses)
 
         if jointAxes == None :
             jointAxes = {}
@@ -147,7 +159,37 @@ class Geometry:
     def jointAxes(self):
         return self.axes
 
+    def getPoseSpec(self, target, reference=None):
+        '''
+        Retrive the pose specification of the given frame pair
 
+        Parameters:
+        - `target`: the robot-attached frame (`kgprim.core.Attachment`) whose
+          pose is required.
+        - `reference`: the robot-attached frame which is the reference
+          for the desired pose. If None, the reference defaults to the
+          frame of the link to which `target` is attached to.
+        Both parameters must be attached to the same link, which must be
+        a link of the robot this geometry model refers to.
+
+        Returns: the `kgprim.motions.PoseSpec` describing the pose of `target`
+        relative to `reference`, according to the geometrical data in this
+        instance. None, if the information cannot be retrieved.
+
+        For example, if `target` is the elbow frame attached to the forearm
+        link of a humanoid robot, and `reference` is None, this function
+        returns the pose of the elbow frame relative to the default
+        forearm frame.
+
+        Note that the return value is always a constant pose, a piece of the
+        geometrical information of the robot model.
+        '''
+        ref = reference or self.frames.byLink.get(target.body)
+        if ref is None:
+            logger.error("could not determine the reference for the relative pose of '%s'", target.name)
+        return self.framesPathFinder.getPoseSpec(target, ref)
+
+## @deprecated("Use the geometry model member function")
 def getPoseSpec(geometryModel, frame):
     '''
     Retrive the pose specification of the given frame, from the given geometry
@@ -160,7 +202,8 @@ def getPoseSpec(geometryModel, frame):
         same robot as the one that the geometry model refers to.
 
     Returns: the `kgprim.motions.PoseSpec` describing the pose of the given
-    frame, relative to the frame of the link it is attached to.
+    frame, relative to the default frame of the link it is attached to.
+    None, if the information cannot be retrieved.
 
     So for example, if the given `frame` is the elbow frame attached to the
     forearm link of a humanoid robot, this function returns the pose of the
@@ -168,6 +211,5 @@ def getPoseSpec(geometryModel, frame):
     '''
     pose = geometryModel.framesModel.poseRelativeToSupportingLinkFrame(frame)
     if pose is not None :
-        if pose in geometryModel.byPose :
-            return geometryModel.byPose[ pose ]
-    return None
+        pose = geometryModel.framesPathFinder.getPoseSpec(pose.target, pose.reference)
+    return pose
