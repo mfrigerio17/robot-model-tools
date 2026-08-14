@@ -123,7 +123,7 @@ def printinfo(args, opts):
     print(c,o,f,g,i, file=args.ofstream)
 
 def writeDOTFile(args, opts):
-    connectivity = getmodels(args.robot, **opts)[0]
+    connectivity, _, frames = getmodels(args.robot, **opts)[0:3]
     # Convert the graph to AGraph format used by pygraphviz
     ag = nx.nx_agraph.to_agraph( connectivity.graph )
 
@@ -136,6 +136,17 @@ def writeDOTFile(args, opts):
             if connectivity.joints[e.attr['joint']].kind == robmodel.connectivity.JointKind.fixed:
                 e.attr['color'] = 'deeppink'
                 e.attr['penwidth'] = '3'
+
+    if args.framesgraph:
+        if frames is not None:
+            for n in ag.nodes():
+                link = connectivity.links[n.name]
+                linkFrames = frames.attachedTo(link)
+                label = '{' + '|'.join( [f.name for f in linkFrames] ) + '}'
+                newname = n.name+"_FS"
+                nframes = ag.add_node(newname, shape='record', label=label)
+                ag.add_edge(n, newname)
+
     ag.write(args.ofstream)
     return ag
 
@@ -354,7 +365,8 @@ def main():
     parser.set_defaults(func=printinfo)
 
     parser = subparsers.add_parser('dot', parents=[commonArgsParser], help='Generate the connectivity graph of the robot model in DOT format (requires pygraphviz)')
-    parser.add_argument('-f', '--color-fixed', dest='colorfixed', action='store_true', help='use a color to highlight fixed joints')
+    parser.add_argument('-x', '--color-fixed', dest='colorfixed', action='store_true', help='use a color to highlight fixed joints')
+    parser.add_argument('-f', '--include-frames', dest='framesgraph', action='store_true', help='include the list of frames attached to each link')
     parser.set_defaults(func=writeDOTFile)
 
     parser = subparsers.add_parser('motdsl', parents=[commonArgsParser], help='Generate the Motion-DSL model corresponding to the kinematics of the robot model')
