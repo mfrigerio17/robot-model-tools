@@ -148,7 +148,7 @@ def jointOrigin(**kwargs):
 def linkInertia(geometryModel, inertiaModel, link):
     props_in = inertiaModel.byLink(link)
     if props_in is None :
-        return 0, 0,0,0, 0,0,0, 0,0,0,0,0,0
+        return 0, 0,0,0, 0,0,0, 0,0,0,0,0,0, False
 
     com = np.array((props_in.com.x, props_in.com.y, props_in.com.z, 1))
     rpy = (0.0,0.0,0.0)
