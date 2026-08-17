@@ -1,4 +1,6 @@
 from dataclasses import dataclass
+from robmodel import logger
+from robmodel.connectivity import JointKind
 
 @dataclass
 class JointLimit:
@@ -19,13 +21,16 @@ class JointLimits:
         self.robot = connectivity_model
         self.limits = {}
 
-        for jname in ranges_by_name:
-            if jname not in self.robot.joints:
-                raise RuntimeError("cannot find joint '{}' in robot {}".format(jname, self.robot.name))
+        for jname,joint in connectivity_model.joints.items():
+            if joint.kind != JointKind.fixed:
+                if jname not in ranges_by_name:
+                    logger.warning("JointLimits: no limits data for joint '%s'", jname)
 
-            joint  = self.robot.joints[jname]
-            limits = ranges_by_name[jname]
-            self.limits[joint] = JointLimit( **limits )
+        for jname, limdata in ranges_by_name.items():
+            if jname in self.robot.joints:
+                self.limits[ self.robot.joints[jname] ] = JointLimit( **limdata )
+            else:
+                logger.warning("JointLimits: joint '%s' does not belong to robot '%s'", jname, self.robot.name)
 
     @property
     def byJoint(self):
