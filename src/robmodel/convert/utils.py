@@ -62,6 +62,25 @@ def intrinsic2extrinsic_XYZ(irx, iry, irz):
 
 
 def translateInertiaMoments(inertiaMoments, mass, tr_com, tr=None):
+    '''
+    Translate the given inertia moments.
+    The returned values (in a `robmodel.inertia.IMoments`) express the same
+    inertial properties, but using coordinates of a frame translated wrt to
+    current one.
+    Parameters:
+    - `inertiaMoments`: the input `robmodel.inertia.IMoments` values.
+       The `frame` attribute is ignored.
+    - `mass`: the mass of the same rigid body the moments refer to.
+    - `tr_com`: the position of the center of mass relative to the origin
+      of the current frame, in current frame coordinates.
+    - `tr`: the position of the origin of the new desired frame,
+      relative to the current frame, in current frame coordinates.
+      Defaults to None.
+    Returns: the values of the same inertia moments expressed with
+    coordinates of a frame translated by `tr` relative to the current
+    one. If `tr` is None, a translation to the center of mass is
+    performed.
+    '''
     ixx = inertiaMoments.ixx
     iyy = inertiaMoments.iyy
     izz = inertiaMoments.izz
@@ -91,16 +110,17 @@ def translateInertiaMoments(inertiaMoments, mass, tr_com, tr=None):
 
 def rotoTranslateInertiaMoments(moments, mass, p_com, p_desired, current_R_desired) :
     '''
-    Roto-translate the given inertia moments so that they are relative to
-    another frame.
+    Roto-translate the given inertia moments.
+    The returned values (in a `robmodel.inertia.IMoments`) express the same
+    inertial properties, but using coordinates of a different frame.
 
     Arguments:
       - moments: a `robmodel.inertia.IMoments` object. Note that its "frame"
-        attribute is ignored in this routine.
-      - mass: the mass of the same rigid body the moments refer to.
-      - p_com: position of the CoM relative to the origin of the current frame,
-        in current frame coordinates.
-      - p_desired: position of the new origin relative to the origin of the
+        attribute is ignored in this routine
+      - mass: the mass of the same rigid body the moments refer to
+      - p_com: the position of the CoM relative to the origin of the current frame,
+        in current frame coordinates
+      - p_desired: the position of the new origin relative to the origin of the
         current frame, in current frame coordinates
       - current_R_desired: the 3x3 rotation matrix that rotates from the desired
         frame to the current frame coordinates
