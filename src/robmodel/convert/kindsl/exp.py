@@ -1,4 +1,4 @@
-import logging
+import logging, re
 from mako.template import Template
 
 import robmodel.convert.utils as utils
@@ -18,9 +18,9 @@ Robot ${robot.name}
 {
 % for link in robot.links.values():
 % if link == robot.base :
-    RobotBase ${link.name} {
+    RobotBase ${id(link.name)} {
 % else :
-    link ${link.name} {
+    link ${id(link.name)} {
         id = ${robot.linkNum(link)}
 % endif
 % if inertia is not None :
@@ -33,7 +33,7 @@ Robot ${robot.name}
 % endif
         children {
         % for child in tree.children(link):
-            ${child.name} via ${robot.linkPairToJoint(link, child).name}
+            ${id(child.name)} via ${id(robot.linkPairToJoint(link, child).name)}
         % endfor
         }
         <% userFrames = linkUserFrames(link) %>
@@ -56,7 +56,7 @@ Robot ${robot.name}
 % for joint in robot.joints.values() :
 % if jIsSupported(joint) :
 <% x,y,z,rx,ry,rz = jointFrameParams(joint) %>
-    ${jSection(joint)} ${joint.name} {
+    ${jSection(joint)} ${id(joint.name)} {
         ref_frame {
             translation = (${tostr(x)}, ${tostr(y)}, ${tostr(z)})
             rotation    = (${tostr(rx, True)}, ${tostr(ry, True)}, ${tostr(rz, True)})
@@ -95,7 +95,7 @@ def userFrameParams(geometryModel, frame):
     if poseSpec is not None :
         return poseParams(poseSpec)
 
-    logger.warning("Could not find pose information for frame '{f}'".format(f=frame.name))
+    logger.warning("Could not find pose information for frame '%s'", frame.name)
     return 0,0,0,0,0,0
 
 def poseParams( poseSpec ):
@@ -183,6 +183,7 @@ def modelText(geometryModel, inertiaModel=None):
         linkUserFrames=lambda l : linkUserFrames(frames, l),
         frameParams= lambda f : userFrameParams(geometryModel, f),
         linkInertia= lambda link : inertiaProperties(geometryModel, inertiaModel, link),
-        tostr=lambda num, isAngle=False: formatter.float2str(num, isAngle)
+        tostr=lambda num, isAngle=False: formatter.float2str(num, isAngle),
+        id= lambda s: re.sub('\\W', '_', s)
     )
 
