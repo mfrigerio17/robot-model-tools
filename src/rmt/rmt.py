@@ -332,6 +332,7 @@ def setRobotArgs(argparser):
     argparser.add_argument('robot', metavar='robot-model', help='the robot model input file')
     argparser.add_argument('-p', '--params', dest='params', metavar='params-file', default=None, help='YAML/JSON file with default parameter values')
     argparser.add_argument('-j', '--joint-limits', dest='jlims', metavar='jlims-file', default=None, help='YAML/JSON file with joint limits data')
+    argparser.add_argument('-b', '--base', dest='baseLink', metavar='NAME', help='consider the link named NAME as the root (defaults to the true root of the input model')
     argparser.add_argument('--ignore-fixed', dest='ignorefixed', action='store_true', help='ignore fixed joints when loading a model (might cause errors)')
 
 def optsDict(parsed_arguments):
@@ -339,6 +340,7 @@ def optsDict(parsed_arguments):
         'ignoreFixedJoints' : parsed_arguments.ignorefixed,
         'paramsFilePath': parsed_arguments.params,
         'jlimsFilePath' : parsed_arguments.jlims,
+        'baseLinkName' : parsed_arguments.baseLink,
     }
 
 def main():
