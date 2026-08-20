@@ -198,8 +198,18 @@ def linkFrameToJointFrameInURDF(urdfjoint):
     return xyz, rpy, motion__linkToJoint
 
 
+def _removeNonCommonDescendants(urdf, actualRootLink, willBeRootLink):
+    def _prune(urdf, toBePruned, toBePreserved):
+        if toBePruned != toBePreserved:
+            for joint in urdf.links[toBePruned].childJoints:
+                _prune(urdf, joint.child, toBePreserved)
+                del urdf.joints[joint.name]
+            del urdf.links[toBePruned]
 
-def convert( urdf, ignoreFixedJoints=False, **kwargs) :
+    _prune(urdf, actualRootLink, willBeRootLink)
+
+
+def convert( urdf, ignoreFixedJoints=False, baseLinkName=None, **kwargs) :
     '''
     Reads the model from a URDFWrapper instance, and construct the corresponding
     models in our format.
@@ -218,6 +228,14 @@ def convert( urdf, ignoreFixedJoints=False, **kwargs) :
         logger.warning("Found {0} links without parent, only one expected".format(len(orphans)))
         logger.warning("Any robot model must have exactly one root element.")
         logger.warning("This might lead to unexpected results.")
+
+    robotBase = orphans[0]
+    if baseLinkName is not None:
+        if baseLinkName in urdf.links:
+            _removeNonCommonDescendants(urdf, robotBase, baseLinkName)
+            robotBase = baseLinkName
+        else:
+            logger.warning("Given base '%s' is not a link of URDF model '%s'. Ignoring.", baseLinkName, robotName)
 
     # Build the list of kinematic pairs by going through the sequence of joints.
     # Use a cache to avoid creating multiple times the "same" link (for those
@@ -250,7 +268,6 @@ def convert( urdf, ignoreFixedJoints=False, **kwargs) :
     # REGULAR NUMBERING
     # There is no numbering scheme in the URDF format, so we arbitrarily
     # associate code to each link via a Depth-First-Traversal
-    robotBase = orphans[0]
     code = 1
     numbering = {}
     def setCode(currentLink, parent):
