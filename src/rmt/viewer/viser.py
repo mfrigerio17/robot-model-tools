@@ -153,17 +153,33 @@ class ViserScene:
         GUI controls
         '''
 
+        # First add the elements of the 3D scene
         self._addToScene(self.robot.base, None, "/")
 
-        with self.server.gui.add_folder(label="Frames"):
-            opts = ["show all","hide all"]
-            hj = self.server.gui.add_button_group(label="Joints", options=opts)
-            hl = self.server.gui.add_button_group(label="Links", options=opts)
+        # Then the GUI controls.
+        # `event` (below) is a Viser GUI object. The `target` is the affected gui element
 
-            hj.on_click(func= lambda _ :
-                self._setVisibility(self.h_jframes.values(), hj.value==opts[0]) )
-            hl.on_click(func= lambda _ :
-                self._setVisibility(self.h_lframes.values(), hl.value==opts[0]) )
+        gui = self.server.gui
+        with gui.add_folder(label="Frames"):
+            opts = ["show","hide"]
+            group = self.server.gui.add_tab_group()
+            def addTabWithFramesCtrls(label, rob_items, frames_h):
+                with group.add_tab(label):
+                    h_buttons = gui.add_button_group(label="All:", options=opts)
+                    checkboxes = []
+                    def _showFrame(event) : # handler for a single checkbox
+                        frames_h[event.target.label].visible = event.target.value
+                    for name in rob_items:
+                        h = gui.add_checkbox(label=name, initial_value=frames_h[name].visible)
+                        h.on_update(_showFrame)
+                        checkboxes.append(h)
+                    def _setAll(event): # handler for the buttons
+                        for box in checkboxes : box.value = (event.target.value==opts[0])
+                        # note that in Viser setting a checkbox triggers in turn its side effect
+                    h_buttons.on_click(_setAll)
+            addTabWithFramesCtrls("Links" , self.robot.links,  self.h_lframes)
+            addTabWithFramesCtrls("Joints", self.robot.joints, self.h_jframes)
+
 
         with self.server.gui.add_folder(label="Meshes"):
             h = self.server.gui.add_slider(label="opacity", min=0.0, max=1.0, initial_value=1.0, step=0.1)
