@@ -33,6 +33,7 @@ class URDFWrapper :
             self.inertia = None
             self.parent  = None
             self.supportingJoint = None
+            self.childJoints = []
     class Joint:
         def __init__(self, name):
             self.name = name
@@ -83,6 +84,7 @@ class URDFWrapper :
             successor   = self.links[ joint.child ]
             successor.parent = predecessor # a Link instance, not a name
             successor.supportingJoint = joint
+            predecessor.childJoints.append( joint )
 
     def readInertialData(self, linkNode):
         params = dict()
