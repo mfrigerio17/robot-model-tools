@@ -197,9 +197,9 @@ def linkInertia(geometryModel, inertiaModel, link):
         # inertia moments are in link-framme coordinates
         moments = utils.translateInertiaMoments(props_in.moments, props_in.mass, com)
     else:
-        link_TR_momentsfr = robmodel.geometry.getPoseSpec(geometryModel, frame_moments)
+        link_TR_momentsfr = geometryModel.getPoseSpec(frame_moments)
         if link_TR_momentsfr is None:
-            logger.error(("Could not retrieve the pose of frame '%s' "
+            logger.error(("Could not retrieve the pose of frame '%s' (for the moments of inertia)"
                           "relative to the frame of link '%s'"),
                           frame_moments.name, link.name)
             raise RuntimeError("URDF export: failed to convert inertia moments")
