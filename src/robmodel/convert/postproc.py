@@ -110,13 +110,8 @@ def collapseFixedJoints(connectivity, ordering=None, frames=None, geometry=None,
         userFrames = {primitives.Attachment( attachment.entity, toNewLink[attachment.body] )
                                 for attachment in frames.userFrames.values() }
 
-        # Preserve the frames of the joints/links that were deleted,
+        # Preserve the frames of the links that were deleted,
         # as additional user frames attached to the new links
-        for joint in sortedFixedJoints:
-            oldFrameAttachment = frames.byJoint[joint]
-            userFrames.add( primitives.Attachment(
-                              entity= oldFrameAttachment.entity,
-                              body  = toNewLink[ oldFrameAttachment.body ] ) )
         for droppedLinks in compositeToParts.values():
             for dropped in droppedLinks:
                 oldFrameAttachment = frames.byLink[ dropped ]
@@ -132,23 +127,30 @@ def collapseFixedJoints(connectivity, ordering=None, frames=None, geometry=None,
         for oldPose in geometry.posesModel.poses:
             ref = oldPose.pose.reference
             tgt = oldPose.pose.target
+            if not ((ref.name in newframes.byName) and (tgt.name in newframes.byName)):
+                # Some of the old poses involve the fixed-joint frames that were not
+                # added in the new frames model. We drop those poses, although we use
+                # the data below
+                continue
             ref = newframes.byName[ref.name]
             tgt = newframes.byName[tgt.name]
             poses.append( PoseSpec(
                             pose   = primitives.Pose(target=tgt, reference=ref),
                             motion = oldPose.motion) )
-        # Need to add the (identity) pose of the frame of the links that were
-        # dropped, relative to the frame of the fixed joints that were dropped.
-        # Those are not in the pose model already, because technically they are
-        # joint-state dependent poses (so not in the geometry model of a robot).
-        # But we know those dropped joints were fixed, so that such relative pose
-        # is constant (and equal to the identity)
+        # Need to add the pose of the frame of the links that were dropped,
+        # relative to the frame of the former parent link.
+        # There used to be a fixed joint in between them, so we reuse the pose of
+        # the fixed-joint frame itself.
+        # We always query the new frames by name, not by link, because we know
+        # that the target is no longer a link (it was dropped), we are only preserving
+        # a frame at its place. About the parent, we do not know, it could be a
+        # real link, or it could also be one that was dropped.
         for joint in sortedFixedJoints:
-            fixedJointFrame = newframes.byName[ frames.byJoint[joint].name ]
+            predecessorFrame= newframes.byName[ frames.byLink[ ordering.predecessor(joint) ].name ]
             successorFrame  = newframes.byName[ frames.byLink[ ordering.successor(joint) ].name ]
             poses.append( PoseSpec(
-                pose = primitives.Pose(target=successorFrame, reference=fixedJointFrame),
-                motion = motions.MotionSequence(steps=[]) ) )
+                pose = primitives.Pose(target=successorFrame, reference=predecessorFrame),
+                motion = geometry.byJoint[joint].motion) )
 
         # We still miss the connection between the roots of the subtrees
         # that were dropped, and the new links into which they were mapped.
