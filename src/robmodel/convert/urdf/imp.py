@@ -292,8 +292,9 @@ def convert( urdf, ignoreFixedJoints=False, baseLinkName=None, **kwargs) :
     # However, it implicitly uses frames with origin at the CoMs, because the
     # inertial moments are defined there, according to the specs.
     comFrames = []
-    for _,link in orderedModel.links.items():
-        comFrames.append( primitives.Attachment( primitives.Frame(com_frame_name(link)), link ) )
+    for lname,link in orderedModel.links.items():
+        if urdf.links[lname].inertia["mass"] > 0:
+            comFrames.append( primitives.Attachment( primitives.Frame(com_frame_name(link)), link ) )
 
     framesModel = robmodel.frames.RobotDefaultFrames(orderedModel, comFrames)
 
@@ -322,14 +323,15 @@ def convert( urdf, ignoreFixedJoints=False, baseLinkName=None, **kwargs) :
 
     # Add pose information for the CoM frames
     for name, link in orderedModel.links.items() :
-        linkFrame = framesModel.byLink[ link ]
-        comFrame  = framesModel.byName[com_frame_name(link)]
+        if urdf.links[name].inertia["mass"] > 0:
+            linkFrame = framesModel.byLink[ link ]
+            comFrame  = framesModel.byName[com_frame_name(link)]
 
-        pose = primitives.Pose(target=comFrame, reference=linkFrame)
-        com  = urdf.links[name].inertia['xyz']
-        tr   = [motions.translation(a, com[a.value]) for a in motions.Axis if round(com[a.value],5) != 0.0]
+            pose = primitives.Pose(target=comFrame, reference=linkFrame)
+            com  = urdf.links[name].inertia['xyz']
+            tr   = [motions.translation(a, com[a.value]) for a in motions.Axis if round(com[a.value],5) != 0.0]
 
-        poses.append( PoseSpec(pose, MotionSequence(tr, MotionSequence.Mode.fixedFrame)) )
+            poses.append( PoseSpec(pose, MotionSequence(tr, MotionSequence.Mode.fixedFrame)) )
 
     posesModel = motions.PosesSpec(robotName, poses)
     geometryModel = robmodel.geometry.Geometry(orderedModel, framesModel, posesModel, axes)
@@ -337,17 +339,16 @@ def convert( urdf, ignoreFixedJoints=False, baseLinkName=None, **kwargs) :
     # INERTIAL MODEL
     inertialData = {}
     for name, mylink in orderedModel.links.items() :
-        linkFrame = framesModel.byLink[ mylink ]
-        comFrame  = framesModel.byName[com_frame_name(mylink)]
-
         link = urdf.links[name]
-        com  = link.inertia['xyz']
-        com  = robmodel.inertia.CoM(linkFrame, com[0], com[1], com[2] )
         mass = link.inertia['mass']
+        if mass > 0:
+            linkFrame = framesModel.byLink[ mylink ]
+            comFrame  = framesModel.byName[com_frame_name(mylink)]
+            com  = link.inertia['xyz']
+            com  = robmodel.inertia.CoM(linkFrame, com[0], com[1], com[2] )
+            moments = robmodel.inertia.IMoments(comFrame, **link.inertia['moments'])
 
-        moments = robmodel.inertia.IMoments(comFrame, **link.inertia['moments'])
-
-        inertialData[ name ] = robmodel.inertia.BodyInertia(mass, com, moments)
+            inertialData[ name ] = robmodel.inertia.BodyInertia(mass, com, moments)
     inertiaModel = robmodel.inertia.RobotLinksInertia(connectivityModel, framesModel, inertialData)
 
 
