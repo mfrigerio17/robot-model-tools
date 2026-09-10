@@ -1,9 +1,12 @@
-import logging, re
+import logging, re, math
+import numpy as np
 from mako.template import Template
 
 import robmodel.convert.utils as utils
 
+import kgprim.core
 import kgprim.ct as ct
+import kgprim.motions as mot
 import kgprim.ct.repr.mxrepr as mxrepr
 
 from robmodel.connectivity import JointKind
@@ -167,22 +170,110 @@ def inertiaProperties(geometryModel, inertiaModel, link) :
         moments.ixz,
         moments.iyz)
 
+
+def convert(geometry, inertia):
+    '''
+    "Normalize" the given models so as to conform with the KinDSL format
+    constraints: the joint axis is always the Z axis of the joint frame.
+    The relative orientation of the robot frames might therefore change,
+    thus the inertial properties need to be also adapted.
+    '''
+    connectivity = geometry.connectivityModel
+    frames       = geometry.framesModel
+
+    kindsl_to_original = {}
+
+    allNewPoses = []
+
+    for joint in connectivity.joints.values():
+        predec = connectivity.predecessor(joint)
+        rotToOriginalLinkFrame = kindsl_to_original.get(predec, mot.MotionSequence([]))
+
+        # We need to find the intrinsic (successive) rotations rx ry for the
+        # joint frame, such that the Z axis of the resulting frame is aligned
+        # with the joint axis; such is the convention of the KinDSL format.
+        # We take the generic rotation matrix corresponding to instrinsic rx ry
+        # rotations, and we equate the third column (Z axis) with the joint
+        # axis:
+        #
+        #     sin(ry)         = axis_x
+        #   - sin(rx) cos(ry) = axis_y
+        #     cos(rx) cos(ry) = axis_z
+        axis = np.array( geometry.jointAxes[joint.name] )
+        axis = np.round(axis, 5)
+        ry = math.asin( axis[0] )
+        if axis[2] != 0.0 :
+            rx = math.atan2( -axis[1], axis[2])
+        else :
+            cy = math.cos(ry)
+            if round(cy,5) != 0.0 :
+                arg = - axis[1] / cy
+                if math.fabs(arg) > 1 :
+                    arg = math.copysign(1, arg)
+                rx = math.asin( arg )
+            else:
+                rx = 0.0
+        rz = 0.0;
+
+        rx  = mot.MotionStep(mot.MotionStep.Kind.Rotation, mot.Axis.X, rx)
+        ty  = mot.MotionStep(mot.MotionStep.Kind.Rotation, mot.Axis.Y, ry)
+        rotsToAlignZ = mot.MotionSequence([rx, ty], mot.MotionSequence.Mode.currentFrame)
+
+        successor = connectivity.successor(joint)
+        kindsl_to_original[successor] = mot.reverse(rotsToAlignZ)
+
+        # the pose of the joint frame relative to the link frame of the original model
+        jointFramePoseSpec = geometry.byJoint[ joint ]
+
+        motions = rotToOriginalLinkFrame.sequences.copy()
+        motions.extend( jointFramePoseSpec.motion.sequences )
+        motions.append( rotsToAlignZ )
+
+        allNewPoses.append( mot.PoseSpec(jointFramePoseSpec.pose, mot.MotionPath(motions)) )
+
+    for name,frame in frames.userFrames.items():
+        poseSpec = geometry.getPoseSpec(frame)
+        rotToOriginalLinkFrame = kindsl_to_original.get(frame.body)
+        if rotToOriginalLinkFrame:
+            allNewPoses.append( mot.PoseSpec(poseSpec.pose,
+                    mot.MotionPath([rotToOriginalLinkFrame, poseSpec.motion])) )
+        else:
+            allNewPoses.append(poseSpec)
+
+    userFrames = list(frames.userFrames.values())
+    for link in connectivity.links.values():
+        rotToOriginalLinkFrame = kindsl_to_original.get(link)
+        if rotToOriginalLinkFrame:
+            frame = kgprim.core.Attachment(body=link, entity=kgprim.core.Frame("original_"+link.name))
+            userFrames.append(frame)
+            pose = mot.Pose(target=frame, reference=frames.byLink[link])
+            allNewPoses.append( mot.PoseSpec(pose=pose, motion=rotToOriginalLinkFrame) )
+    newFramesModel = robmodel.frames.RobotDefaultFrames(connectivity, userFrames)
+
+    newPosesModel = mot.PosesSpec(name=geometry.poses.name, poses=allNewPoses)
+    newgeometry = robmodel.geometry.Geometry(connectivity, newFramesModel, newPosesModel)
+
+    newinertia = inertia ## TODO
+    return newgeometry, newinertia
+
+
 def modelText(geometryModel, inertiaModel=None):
-    connect= geometryModel.connectivityModel
-    frames = geometryModel.framesModel
+    geometry, inertia = convert(geometryModel, inertiaModel)
+    connect= geometry.connectivityModel
+    frames = geometry.framesModel
     formatter = utils.FloatsFormatter(pi_string="PI")
     tree = TreeUtils(connect)
 
     return tpl.render(
         robot=connect,
         tree=tree,
-        inertia=inertiaModel,
+        inertia=inertia,
         jSection=jointSectionName,
         jIsSupported=__isSupported,
-        jointFrameParams=lambda j : jointFrameParams(geometryModel, j),
+        jointFrameParams=lambda j : jointFrameParams(geometry, j),
         linkUserFrames=lambda l : linkUserFrames(frames, l),
-        frameParams= lambda f : userFrameParams(geometryModel, f),
-        linkInertia= lambda link : inertiaProperties(geometryModel, inertiaModel, link),
+        frameParams= lambda f : userFrameParams(geometry, f),
+        linkInertia= lambda link : inertiaProperties(geometry, inertia, link),
         tostr=lambda num, isAngle=False: formatter.float2str(num, isAngle),
         id= lambda s: re.sub('\\W', '_', s)
     )
