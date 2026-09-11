@@ -94,7 +94,7 @@ def jointFrameParams(geometryModel, joint):
     return poseParams(poseSpec)
 
 def userFrameParams(geometryModel, frame):
-    poseSpec = robmodel.geometry.getPoseSpec(geometryModel, frame)
+    poseSpec = geometryModel.getPoseSpec(frame)
     if poseSpec is not None :
         return poseParams(poseSpec)
 
@@ -135,7 +135,7 @@ def inertiaProperties(geometryModel, inertiaModel, link) :
     link_H_comfr  = None
 
     if frame_com != frame_link :
-        link_TR_comfr = robmodel.geometry.getPoseSpec(geometryModel, frame_com)
+        link_TR_comfr = geometryModel.getPoseSpec(frame_com)
         if link_TR_comfr is None:
             logger.error("Cannot find the pose of the CoM-frame '{}' relative to the frame of link '{}', for the input model '{}'"
                               .format(frame_com, link, geometryModel.robotName))
@@ -145,7 +145,7 @@ def inertiaProperties(geometryModel, inertiaModel, link) :
         com = link_H_comfr @ com
 
     if  frame_moms != frame_link :
-        pose_of_moments_frame = robmodel.geometry.getPoseSpec(geometryModel, frame_moms)
+        pose_of_moments_frame = geometryModel.getPoseSpec(frame_moms)
         if pose_of_moments_frame is None:
             logger.error("Cannot find the pose of frame '{}' relative to the frame of link '{}', for the input model '{}'"
                 .format(frame_moms, link, geometryModel.robotName))
@@ -161,7 +161,6 @@ def inertiaProperties(geometryModel, inertiaModel, link) :
 
         moments = utils.rotoTranslateInertiaMoments(props.moments, props.mass, com_moms, origin_moms, moms_H_link[0:3,0:3] )
 
-
     return (props.mass, com[0], com[1], com[2],
         moments.ixx,
         moments.iyy,
@@ -169,6 +168,7 @@ def inertiaProperties(geometryModel, inertiaModel, link) :
         moments.ixy,
         moments.ixz,
         moments.iyz)
+
 
 
 def convert(geometry, inertia):
@@ -181,79 +181,109 @@ def convert(geometry, inertia):
     connectivity = geometry.connectivityModel
     frames       = geometry.framesModel
 
-    kindsl_to_original = {}
+    rot_from_linkframe_to_original = {}
 
     allNewPoses = []
 
-    for joint in connectivity.joints.values():
-        predec = connectivity.predecessor(joint)
-        rotToOriginalLinkFrame = kindsl_to_original.get(predec, mot.MotionSequence([]))
+    def originalLinkFrameName(link) : return "original_" + link.name
+    linkFramesOfOriginalModel = {}
+    newUserFrames = list(frames.userFrames.values())
 
+    for joint in connectivity.joints.values():
         # We need to find the intrinsic (successive) rotations rx ry for the
         # joint frame, such that the Z axis of the resulting frame is aligned
         # with the joint axis; such is the convention of the KinDSL format.
         # We take the generic rotation matrix corresponding to instrinsic rx ry
-        # rotations, and we equate the third column (Z axis) with the joint
-        # axis:
+        # rotations, and we equate the third column (Z axis) with the joint axis:
         #
         #     sin(ry)         = axis_x
         #   - sin(rx) cos(ry) = axis_y
         #     cos(rx) cos(ry) = axis_z
         axis = np.array( geometry.jointAxes[joint.name] )
         axis = np.round(axis, 5)
-        ry = math.asin( axis[0] )
-        if axis[2] != 0.0 :
-            rx = math.atan2( -axis[1], axis[2])
-        else :
-            cy = math.cos(ry)
-            if round(cy,5) != 0.0 :
-                arg = - axis[1] / cy
-                if math.fabs(arg) > 1 :
-                    arg = math.copysign(1, arg)
-                rx = math.asin( arg )
-            else:
-                rx = 0.0
-        rz = 0.0;
+        if np.array_equal(axis, np.array([0,0,1])):
+            rotsToAlignZ = mot.MotionSequence([])
+        else:
+            ry = math.asin( axis[0] )
+            if axis[2] != 0.0 :
+                rx = math.atan2( -axis[1], axis[2])
+            else :
+                cy = math.cos(ry)
+                if round(cy,5) != 0.0 :
+                    arg = - axis[1] / cy
+                    if math.fabs(arg) > 1 :
+                        arg = math.copysign(1, arg)
+                    rx = math.asin( arg )
+                else:
+                    rx = 0.0
+            rz = 0.0;
 
-        rx  = mot.MotionStep(mot.MotionStep.Kind.Rotation, mot.Axis.X, rx)
-        ty  = mot.MotionStep(mot.MotionStep.Kind.Rotation, mot.Axis.Y, ry)
-        rotsToAlignZ = mot.MotionSequence([rx, ty], mot.MotionSequence.Mode.currentFrame)
+            rx  = mot.MotionStep(mot.MotionStep.Kind.Rotation, mot.Axis.X, rx)
+            ty  = mot.MotionStep(mot.MotionStep.Kind.Rotation, mot.Axis.Y, ry)
+            rotsToAlignZ = mot.MotionSequence([rx, ty], mot.MotionSequence.Mode.currentFrame)
+            rotsToOriginalFrame = mot.reverse(rotsToAlignZ)
 
-        successor = connectivity.successor(joint)
-        kindsl_to_original[successor] = mot.reverse(rotsToAlignZ)
+            successor = connectivity.successor(joint)
+            rot_from_linkframe_to_original[successor] = rotsToOriginalFrame
 
-        # the pose of the joint frame relative to the link frame of the original model
+            # Keep track of the changes: create another link-attached frame to represent
+            # the original link frame, and store the relative pose
+            originalframe = kgprim.core.Attachment(body=successor, entity=kgprim.core.Frame(originalLinkFrameName(successor)))
+            linkFramesOfOriginalModel[successor] = originalframe
+            newUserFrames.append(originalframe)
+            pose = mot.Pose(target=originalframe, reference=frames.byLink[successor])
+            allNewPoses.append( mot.PoseSpec(pose=pose, motion=rotsToOriginalFrame) )
+
+        # Adjust the specs of the joint frame pose relative to the predecessor frame
+        #
+        predec = connectivity.predecessor(joint)
+        rotsToOriginalFrame = rot_from_linkframe_to_original.get(predec, mot.MotionSequence([]))
+
+        # the original pose specs, of the joint frame relative to the link frame of the original model
         jointFramePoseSpec = geometry.byJoint[ joint ]
 
-        motions = rotToOriginalLinkFrame.sequences.copy()
+        motions = [rotsToOriginalFrame]
         motions.extend( jointFramePoseSpec.motion.sequences )
         motions.append( rotsToAlignZ )
 
         allNewPoses.append( mot.PoseSpec(jointFramePoseSpec.pose, mot.MotionPath(motions)) )
 
+    # Adjust the specs of the poses of all the custom frames.
+    # There is no need to change the concrete motion steps, we can just update the
+    # reference frame: for the original poses relative to the original link-frame,
+    # we just swap the reference with the new frame we created
     for name,frame in frames.userFrames.items():
         poseSpec = geometry.getPoseSpec(frame)
-        rotToOriginalLinkFrame = kindsl_to_original.get(frame.body)
-        if rotToOriginalLinkFrame:
-            allNewPoses.append( mot.PoseSpec(poseSpec.pose,
-                    mot.MotionPath([rotToOriginalLinkFrame, poseSpec.motion])) )
-        else:
-            allNewPoses.append(poseSpec)
 
-    userFrames = list(frames.userFrames.values())
-    for link in connectivity.links.values():
-        rotToOriginalLinkFrame = kindsl_to_original.get(link)
-        if rotToOriginalLinkFrame:
-            frame = kgprim.core.Attachment(body=link, entity=kgprim.core.Frame("original_"+link.name))
-            userFrames.append(frame)
-            pose = mot.Pose(target=frame, reference=frames.byLink[link])
-            allNewPoses.append( mot.PoseSpec(pose=pose, motion=rotToOriginalLinkFrame) )
-    newFramesModel = robmodel.frames.RobotDefaultFrames(connectivity, userFrames)
+        # we only care for robot links whose frame actually changed
+        if frame.body in linkFramesOfOriginalModel:
+            trueOriginalLinkFrame       = frames.byLink[frame.body]
+            newFrameWhereTheOriginalWas = linkFramesOfOriginalModel[frame.body]
 
-    newPosesModel = mot.PosesSpec(name=geometry.poses.name, poses=allNewPoses)
-    newgeometry = robmodel.geometry.Geometry(connectivity, newFramesModel, newPosesModel)
+            if poseSpec.pose.reference == trueOriginalLinkFrame:
+                newpose = mot.Pose(target=poseSpec.pose.target, reference=newFrameWhereTheOriginalWas)
+                poseSpec = mot.PoseSpec(pose=newpose, motion=poseSpec.motion)
+        allNewPoses.append(poseSpec)
 
-    newinertia = inertia ## TODO
+    newFramesModel = robmodel.frames.RobotDefaultFrames(connectivity, newUserFrames)
+    newPosesModel  = mot.PosesSpec(name=geometry.poses.name, poses=allNewPoses)
+    newgeometry    = robmodel.geometry.Geometry(connectivity, newFramesModel, newPosesModel)
+
+    if inertia is None: return newgeometry, inertia
+    inertiaData = {}
+    for lname,link in connectivity.links.items():
+        linkInertia = inertia.byLink(link)
+        if link in linkFramesOfOriginalModel:
+            trueOriginalLinkFrame       = frames.byLink[link]
+            newFrameWhereTheOriginalWas = linkFramesOfOriginalModel[link]
+            if linkInertia.com.frame == trueOriginalLinkFrame:
+                linkInertia.com.frame = newFrameWhereTheOriginalWas
+            if linkInertia.moments.frame == trueOriginalLinkFrame:
+                linkInertia.moments.frame = newFrameWhereTheOriginalWas
+        inertiaData[lname] = linkInertia
+
+    newinertia = robmodel.inertia.RobotLinksInertia(connectivity, newFramesModel, inertiaData)
+
     return newgeometry, newinertia
 
 
@@ -261,7 +291,7 @@ def modelText(geometryModel, inertiaModel=None):
     geometry, inertia = convert(geometryModel, inertiaModel)
     connect= geometry.connectivityModel
     frames = geometry.framesModel
-    formatter = utils.FloatsFormatter(pi_string="PI")
+    formatter = utils.FloatsFormatter(pi_string="PI", round_digits=5)
     tree = TreeUtils(connect)
 
     return tpl.render(
