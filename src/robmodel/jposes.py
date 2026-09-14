@@ -62,7 +62,6 @@ class JointPoses:
             succFrame = frames.linkFrames [ succ ]
             jointFrame= frames.jointFrames[ joint ]
             pose      = Pose(target=succFrame, reference=jointFrame)
-            axis      = axes[joint.name]
             # So, we have the pose of the link (successor) frame relative to the joint frame
 
             symname = "q{0}".format(i-1)
@@ -74,6 +73,7 @@ class JointPoses:
                 # aribtrary motion step of 0 value
                 motionSteps = [motions.translation(motions.Axis.Z, 0.0)]
             else :
+                axis = axes[joint.name]
                 if joint.kind == JointKind.prismatic :
                     motionF = lambda axis,amount : motions.translation(axis, amount)
                 elif joint.kind == JointKind.revolute :
