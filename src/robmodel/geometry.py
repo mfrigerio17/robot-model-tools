@@ -8,6 +8,7 @@ from kgprim.core  import Pose
 from kgprim import motions
 from robmodel import ordering
 from robmodel import frames
+from robmodel.connectivity import JointKind
 
 logger = logging.getLogger(__name__)
 
@@ -136,9 +137,10 @@ class Geometry:
         if jointAxes == None :
             jointAxes = {}
             for joint in connectModel.joints.values() :
-                jointAxes[joint.name] = (0.0,0.0,1.0) # default is Z axis
+                if joint.kind != JointKind.fixed:
+                    jointAxes[joint.name] = (0.0,0.0,1.0) # default is Z axis
         else :
-            if jointAxes.keys() != connectModel.joints.keys():
+            if not (jointAxes.keys() <= connectModel.joints.keys()):
                 logger.warning("The names in the joint-axes dictionary do not " +
                                "match the names in the connectivity model")
         self.axes = jointAxes
