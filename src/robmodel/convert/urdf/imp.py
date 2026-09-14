@@ -67,7 +67,7 @@ class URDFWrapper :
             name = nodejoint.get('name')
             joint = URDFWrapper.Joint( name )
             joint.type  = nodejoint.get('type')
-            joint.frame = self.readJointFrameData( nodejoint )
+            joint.frame = self.readJointFrameData( nodejoint, joint.type )
             joint.limits= self.readJointLimitsData( nodejoint )
             #joint.predec_H_joint[:3,:3] = getR_extrinsicXYZ( * joint.frame['rpy'] )
             #joint.predec_H_joint[:3,3]  = np.array( joint.frame['xyz'] )
@@ -132,7 +132,7 @@ class URDFWrapper :
         return params
 
 
-    def readJointFrameData(self, jointNode):
+    def readJointFrameData(self, jointNode, jointKind):
         params = dict()
 
         # URDF defaults:
@@ -151,8 +151,8 @@ class URDFWrapper :
         axis_node = jointNode.find('axis')
         if axis_node != None :
             params['axis'] = tuple([float(x) for x in axis_node.get('xyz').split()])
-        else :
-            params['axis'] = (1.,0.,0.) # URDF default
+        elif jointKind != 'fixed':
+            params['axis'] = (1.,0.,0.) # URDF default for non-fixed joints
 
         return params
 
@@ -309,17 +309,14 @@ def convert( urdf, ignoreFixedJoints=False, baseLinkName=None, **kwargs) :
 
         # The relative pose of the URDF joint frame relative to the URDF link frame
         xyz, rpy, motion_link_to_joint = linkFrameToJointFrameInURDF(joint)
-
-        jaxis = np.round( np.array(joint.frame['axis']), 5)
-
-        logger.debug("Joint axis in URDF coordinates    : {0}".format(jaxis) )
         logger.debug("URDF joint xyz and rpy attributes : {0}   {1}".format(xyz, rpy) )
 
         frame_joint = framesModel.framesByName[ robmodel.frames.jointFrameName(orderedModel, myjoint) ]
         frame_link  = framesModel.framesByName[ robmodel.frames.linkFrameName(orderedModel, mylink)  ]
         pose = primitives.Pose(target=frame_joint, reference=frame_link)
         poses.append( PoseSpec(pose, motion_link_to_joint) )
-        axes[name] = joint.frame['axis']
+        if 'axis' in joint.frame:
+            axes[name] = joint.frame['axis']
 
     # Add pose information for the CoM frames
     for name, link in orderedModel.links.items() :
