@@ -90,8 +90,9 @@ tpl = Template('''
 %if geometry is not None :
 <% x,y,z,rx,ry,rz = jointParams(geometryModel=geometry, joint=joint) %>
         <origin xyz="${tostr(x)} ${tostr(y)} ${tostr(z)}" rpy="${tostr(rx)} ${tostr(ry)} ${tostr(rz)}"/>
-<% x,y,z = geometry.jointAxes[joint.name] %>
-        <axis xyz="${tostr(x)} ${tostr(y)} ${tostr(z)}"/>
+%    if axis:=geometry.jointAxes.get(joint.name) :
+        <axis xyz="${tostr(axis[0])} ${tostr(axis[1])} ${tostr(axis[2])}"/>
+%    endif
 %endif
         <parent link="${robot.predecessor(joint).name}"/>
         <child  link="${robot.successor  (joint).name}"/>
