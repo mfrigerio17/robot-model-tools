@@ -6,9 +6,11 @@ from robmodel.connectivity import Link
 from robmodel.connectivity import JointKind
 from robmodel.connectivity import KPair
 import robmodel.frames
+from robmodel.frames import FrameRole
 import robmodel.geometry
 import robmodel.inertia
 import robmodel.convert.utils as utils
+from robmodel.treeutils import TreeUtils
 
 import kgprim.core as primitives # to create instances of Frame
 import kgprim.motions as motions
@@ -23,6 +25,17 @@ logger = logging.getLogger(__name__)
 
 def weld(link1, link2):
     return Link(name=f'{link1.name}+{link2.name}')
+
+
+def _getClosestJointIDsSet(srcOrdered, dstConnectivity, dstJointIDs={}):
+    delta = 0
+    for joint in srcOrdered.joints.values(): # iteration is sorted by original ID
+        if joint.name not in dstConnectivity.joints:
+            delta = delta + 1
+        else:
+            dstJointIDs[joint.name] = srcOrdered.jointNum(joint) - delta
+    return dstJointIDs
+
 
 def collapseFixedJoints(connectivity, ordering=None, frames=None, geometry=None, inertia=None):
     fixedJoints = [jo for jo in connectivity.joints.values() if jo.kind == JointKind.fixed]
@@ -231,3 +244,94 @@ def collapseFixedJoints(connectivity, ordering=None, frames=None, geometry=None,
     return newconnectivity, newordering, newframes, newgeometry, newinertia
 
 
+def dummyLinksToFrames(orderedConnectivity, inertiaModel, framesModel=None, geometryModel=None):
+    if not orderedConnectivity:
+        logger.error("the connectivity model is None, aborting")
+        return
+    if not inertiaModel:
+        logger.error("the inertial model is None, cannot identify dummy (mass-less) links")
+        return
+
+    toBePruned = {} # map (joint,link) for the pairs to be removed, sorted by joint ID
+    inertialData = inertiaModel.inertia
+    treeUtils = TreeUtils(orderedConnectivity)
+    for joint in orderedConnectivity.joints.values():
+        if joint.kind == JointKind.fixed:  # condition 1
+            successor = orderedConnectivity.successor(joint)
+            massless = (successor not in inertialData) or (inertialData[successor].mass==0.0)
+            if massless:  # condition 2
+                if treeUtils.isLeaf(successor):  # condition 3
+                    toBePruned[joint] = successor
+
+    kpairs = {kp for kp in orderedConnectivity.kinematicPairs if kp.joint not in toBePruned}
+    newConnectivity = robmodel.connectivity.Robot(name=orderedConnectivity.name, pairs=kpairs)
+
+    ## Numbering scheme
+    #
+    ids = {orderedConnectivity.base.name: 0}
+    jointIDs = _getClosestJointIDsSet(orderedConnectivity, newConnectivity)
+    for joint in newConnectivity.joints.values():
+        if joint in orderedConnectivity.loopJoints:
+            ids[joint.name] = jointIDs[joint.name]
+        else:
+            link = orderedConnectivity.successor(joint)
+            ids[link.name] = jointIDs[joint.name]
+    newOrdered = robmodel.ordering.Robot(newConnectivity, {'robot':newConnectivity.name, 'nums':ids})
+
+    ## Frames
+    prunedLinkFrame = {}
+    if framesModel:
+        userFrames = [attachment for attachment in framesModel.userFrames.values()
+                        if attachment.body.name in newConnectivity.links ]
+
+        # Preserve the link-frame of the pruned links as a new user-frame.
+        # Also preserve other possible frames attached to the pruned link.
+        for joint, link in toBePruned.items():
+            predecessor = orderedConnectivity.predecessor(joint)
+            for attachment in framesModel.attachedTo(link):
+                # 'link' was a leaf, so there is no joint-frame attached to it; ok.
+                # On the other hand, the attached frames include the link-frame
+                # itself, which is the primary thing we want to preserve
+                newattach = primitives.Attachment( attachment.entity, predecessor )
+                userFrames.append(newattach)
+                if framesModel.frameRole(attachment) == FrameRole.linkRef:
+                    prunedLinkFrame[link] = newattach
+    else: # no frames model to start with
+        for joint, link in toBePruned.items():
+            predecessor = orderedConnectivity.predecessor(joint)
+            frame = primitives.Attachment(primitives.Frame(name=link.name), body=predecessor)
+            userFrames.append( frame )
+            prunedLinkFrame[link] = frame
+    newFrames = robmodel.frames.RobotDefaultFrames(newOrdered, userFrames)
+
+    ## Geometry data
+    newGeometry = geometryModel
+    if geometryModel:
+        poses_specs = []
+        for oldPose in geometryModel.posesModel.poses:
+            if oldPose.pose.target.name not in newFrames.byName:
+                ## assert( this is the frame of one of the pruned joints )
+                continue
+            ref = newFrames.byName[oldPose.pose.reference.name]
+            tgt = newFrames.byName[oldPose.pose.target.name]
+            poses_specs.append( PoseSpec(
+                            pose   = primitives.Pose(target=tgt, reference=ref),
+                            motion = oldPose.motion) )
+
+        # The pruned-link frame coincides with the pruned-joint frame.
+        # Hence the pose relative to the frame of the predecessor(parent)
+        # link is the same as the joint-frame pose from the original model
+        for joint, link in toBePruned.items():
+            linkFrame = prunedLinkFrame[link]
+            predecessor = orderedConnectivity.predecessor(joint)
+            parentLinkFrame = newFrames.byLink[predecessor]
+            poses_specs.append( PoseSpec(
+                            pose   = primitives.Pose(target=linkFrame, reference=parentLinkFrame),
+                            motion = geometryModel.byJoint[joint].motion) )
+
+        jointAxes = { joint:axes for joint in newOrdered.joints
+                if (axes:=geometryModel.jointAxes.get(joint))}
+        posesContainer = motions.PosesSpec(name=geometryModel.posesModel.name, poses=poses_specs )
+        newGeometry = robmodel.geometry.Geometry(newOrdered, newFrames, posesContainer, jointAxes)
+
+    return newConnectivity, newOrdered, newFrames, newGeometry
