@@ -63,6 +63,14 @@ class KPair:
         self.link1 = link1
         self.link2 = link2
 
+    def __eq__(self, rhs):
+        return (isinstance(rhs, KPair) and
+            self.joint==rhs.joint and
+            self.link1==rhs.link1 and self.link2==rhs.link2)
+    def __hash__(self):
+        return 47*hash(self.joint) + 149*hash(self.link1) + 271*hash(self.link2)
+
+
 class Robot:
     '''
     The connectivity model of an articulated robot.
@@ -82,9 +90,6 @@ class Robot:
         self.log = logging.getLogger('robot')
         self._name = name
 
-        # A map from joints to link-pairs
-        self.pairs = {kp.joint: (kp.link1, kp.link2) for kp in pairs}
-
         # The by-name maps for links and joints.
         # Some links will be added multiple times, but it does not matter as
         # the dictionary acts like a set
@@ -101,6 +106,14 @@ class Robot:
         self.loops = nx.cycle_basis(self.graph)
 
         self._checks()
+
+        # A map from joints to link-pairs
+        self._jointToLPair = {kp.joint: (kp.link1, kp.link2) for kp in pairs}
+
+        # The actual list of kinematic pairs.
+        # Rebuild the set as there may be duplicate joints in the input argument
+        # (duplicates are eliminated in the dictionaries above)
+        self._kpairs = { KPair( j, (kp:=self._jointToLPair[j])[0], kp[1]) for j in self._joints.values() }
 
     @property
     def name(self) : return self._name
@@ -130,6 +143,11 @@ class Robot:
         '''The number of loop-joints of this mechanism'''
         return self._nLoopJ
 
+    @property
+    def kinematicPairs(self):
+        '''The set of `KPair`s this model is comprised of'''
+        return self._kpairs
+
     def hasLoops(self):
         return self.nLoopJ > 0
 
@@ -145,7 +163,7 @@ class Robot:
         '''
         The (l1,l2) tuple with the links connected by the given joint
         '''
-        return self.pairs[joint]
+        return self._jointToLPair[joint]
 
     def path(self, link1, link2):
         return nx.shortest_path(self.graph, link1, link2)
