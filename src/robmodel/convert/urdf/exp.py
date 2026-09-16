@@ -97,8 +97,7 @@ tpl = Template('''
         <parent link="${robot.predecessor(joint).name}"/>
         <child  link="${robot.successor  (joint).name}"/>
 %if jointKind(joint) != "fixed" :
-<% jlim = jointLimits(joint) %>
-        <limit effort="${jlim.force}" velocity="${jlim.velocity}" lower="${jlim.lower_pos}" upper="${jlim.upper_pos}" />
+        ${jointLimits(joint)}
 %endif
     </joint>
 
@@ -253,7 +252,13 @@ def modelText(geometryModel, inertiaModel=None, userExtraPoses=None, jointLimits
         if data is None:
             logger.warning("no limits data for joint '%s'", joint.name)
             data = robmodel.jlimits.JointLimit()
-        return data
+
+        data.force    = data.force    or 0.0  # these values are mandatory in the URDF format, so we impose some value
+        data.velocity = data.velocity or 0.0  #
+        lower = f' lower="{data.lower_pos}"' if data.lower_pos else ''  # these are optional
+        upper = f' upper="{data.upper_pos}"' if data.upper_pos else ''  #
+        text = f'<limit effort="{data.force}" velocity="{data.velocity}"{lower}{upper}/>'
+        return text
 
     formatter = utils.FloatsFormatter()
     return tpl.render(
