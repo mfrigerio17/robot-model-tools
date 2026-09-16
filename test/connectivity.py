@@ -43,6 +43,19 @@ class ConnectivityTests(unittest.TestCase):
         self.assertEqual(["j1","j2"], [name for name in ordered1.joints])
         self.assertEqual(["j2","j1"], [name for name in ordered2.joints])
 
+    def test_duplicate_joint(self):
+        l1 = rcn.Link("l1")
+        l2 = rcn.Link("l2")
+        llost = rcn.Link("llost")
+        l4 = rcn.Link("l4")
+        j1 = rcn.Joint("j1", rcn.JointKind.revolute)
+        j2 = rcn.Joint("j2", rcn.JointKind.revolute)
+
+        kp1 = rcn.KPair(j1, l1, l2)
+        kp2 = rcn.KPair(j2, l2, llost)  # j2 appears twice, the first one will be dropped
+        kp3 = rcn.KPair(j2, l2, l4)
+        robot = rcn.Robot("robot_test", [kp1, kp2, kp3])
+        self.assertTrue( robot.kinematicPairs == {kp1, kp3} )
 
 if __name__ == '__main__':
     unittest.main()
