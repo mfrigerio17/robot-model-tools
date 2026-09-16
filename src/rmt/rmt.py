@@ -117,6 +117,10 @@ def getmodels(filepath, paramsFilePath=None, jlimsFilePath=None, floatLiteralsAs
     if jlimsFilePath is not None:
         jlimits = rmt.load.jointLimits(jlimsFilePath, connectivity)
 
+    if kwargs.get('dummiesAsFrames'):
+        connectivity, ordering, frames, geometry = postproc.dummyLinksToFrames(
+            ordering, inertia, frames, geometry)
+
     if collapseFixedJoints :
         connectivity, ordering, frames, geometry, inertia = postproc.collapseFixedJoints(
                 connectivity, ordering, frames, geometry, inertia)
@@ -343,7 +347,9 @@ def setRobotArgs(argparser):
     argparser.add_argument('-b', '--base', dest='baseLink', metavar='NAME', help='consider the link named NAME as the root (defaults to the true root of the input model')
     argparser.add_argument('-i', '--iformat',  dest='iformat', metavar='IFMT', help='input model format (default: detect from extension)')
     argparser.add_argument('--ignore-fixed', dest='ignorefixed', action='store_true', help='ignore fixed joints when loading a model (might cause errors)')
-    argparser.add_argument('--collapse-fixed', dest='collapsefixed', action='store_true', help='remove fixed joints and merge the rigid bodies, after loading the input model')
+    group = argparser.add_argument_group('post-processing', 'affect the model after loading the input, but before exporting')
+    group.add_argument('--dummies-as-frames', dest='dummiesasframes', action='store_true', help='drop fixed, mass-less leaf bodies, but add a placeholder frame')
+    group.add_argument('--collapse-fixed', dest='collapsefixed', action='store_true', help='collapse the fixed joints by merging the bodies of the pair')
 
 
 def getRobotOptsDict(parsed_arguments):
@@ -353,6 +359,7 @@ def getRobotOptsDict(parsed_arguments):
         'jlimsFilePath' : parsed_arguments.jlims,
         'baseLinkName' : parsed_arguments.baseLink,
         'collapseFixedJoints': parsed_arguments.collapsefixed,
+        'dummiesAsFrames': parsed_arguments.dummiesasframes,
         'iformat' : parsed_arguments.iformat,
     }
 
