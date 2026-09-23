@@ -51,8 +51,10 @@ class TreeTests:
         for leaf in self.groundtruth['leafs'] :
             link = self.robot.links[ leaf ]
             self.assertTrue( self.treeu.isLeaf(link) )
+            self.assertTrue( self.treeu.childrenCount(link) == 0 )
         if self.robot.nB > 1:
             self.assertFalse( self.treeu.isLeaf( self.robot.base ) )
+            self.assertTrue( self.treeu.childrenCount( self.robot.base ) > 0 )
 
     def test_ancestors(self):
         for link in self.robot.links.values() :
@@ -63,8 +65,10 @@ class TreeTests:
         children = { parent : [] for parent in parents.values() }
         for link,parent in parents.items():
             children[parent].append(link)
-        for link,parent in parents.items():
-            truth = len(children.get(parent, [])) > 1
-            test = self.treeu.hasSiblings(self.robot.links[link])
-            self.assertEqual(truth, test)
+        for lname, link in self.robot.links.items():
+            children_count = len(children.get(lname, []))
+            self.assertEqual( children_count, self.treeu.childrenCount(link) )
+            for child in self.treeu.children(link):
+                self.assertTrue( child.name in children[lname] )
+                self.assertEqual( children_count>1, self.treeu.hasSiblings(child) )
 
