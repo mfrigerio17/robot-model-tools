@@ -43,9 +43,15 @@ class TreeUtils:
 
     def children(self, l):
         '''
-        The list of children of the given link
+        An iterator over the children of the given link
         '''
         return self.parentToChild.neighbors(l)
+
+    def childrenCount(self, l):
+        '''
+        The number of child links of the given link
+        '''
+        return self.parentToChild.degree(l)
 
     def isLeaf(self, l):
         '''
