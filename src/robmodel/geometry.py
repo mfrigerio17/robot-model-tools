@@ -36,7 +36,8 @@ class Geometry:
 
         - `connectModel` the connectivity model of the mechanism, with ordering
         - `framesModel` the set of the Cartesian frames attached to the mechanism
-        - `posesModel` the constant, relative poses between the frames
+        - `posesModel` the constant, relative poses between the frames. This is
+              typically an instance of the container `kgprim.motions.PosesSpec`.
         - `jointAxes` the versors of the joint axes, in joint frame coordinates
 
         The third argument is the actual geometric data; this constructor makes
@@ -73,12 +74,12 @@ class Geometry:
             ignore = False
             pose = poseSpec.pose
 
-            warnmsg = '''Frame '%s' not found on the given frames-model '%s', ignoring'''
+            warnmsg = '''Ignoring pose involving frame '%s', not found in the frames-model'''
             if pose.target.name not in framesModel.framesByName :
-                logger.warning(warnmsg, pose.target.name, rname)
+                logger.warning(warnmsg, pose.target.name)
                 ignore = True
             if pose.reference.name not in framesModel.framesByName :
-                logger.warning(warnmsg, pose.reference.name, rname)
+                logger.warning(warnmsg, pose.reference.name)
                 ignore = True
 
             if not ignore:
@@ -156,7 +157,12 @@ class Geometry:
         return self.frames
     @property
     def posesModel(self):
+        '''
+        The `kgprim.motions.PosesSpec` container of the relative poses
+        stored in this instance.
+        '''
         return self.poses
+
     @property
     def jointAxes(self):
         return self.axes
