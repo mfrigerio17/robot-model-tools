@@ -125,8 +125,10 @@ def import_model(istream, dropFixedJoints=False, **kwargs):
         joint  = src_joints[name]
         logger.debug("Processing joint * {0} * and predecessor link * {1} *".format(name, mylink.name) )
 
-        axes[name] = tuple([round(v,5) for v in joint['axis'].values()])
-        logger.debug("Joint axis in Gafro coordinates    : {0}".format(axes[name]) )
+        if myjoint.kind != JointKind.fixed:
+            axis = joint.get('axis', {'x':1, 'y':0, 'z':0})
+            axes[name] = tuple([round(v,5) for v in axis.values()])
+            logger.debug("Joint axis in Gafro coordinates    : {0}".format(axes[name]) )
 
         # The relative pose of the joint frame relative to the link frame
         frame_joint = framesModel.framesByName[ robmodel.frames.jointFrameName(orderedModel, myjoint) ]
