@@ -126,6 +126,8 @@ def getmodels(filepath, paramsFilePath=None, jlimsFilePath=None, floatLiteralsAs
     if collapseFixedJoints :
         connectivity, ordering, frames, geometry, inertia = postproc.collapseFixedJoints(
                 connectivity, ordering, frames, geometry, inertia)
+    if kwargs.get('dropUserFrames'):
+        frames, geometry = postproc.dropUserFrames(ordering, frames, geometry)
 
     return connectivity, ordering, frames, geometry, inertia, params, jlimits
 
@@ -353,6 +355,7 @@ def setRobotArgs(argparser):
     group.add_argument('--prune-dummies', dest='prunedummies', action='store_true', help='prune fixed, mass-less leaf bodies')
     group.add_argument('--dummies-as-frames', dest='dummiesasframes', action='store_true', help='prune fixed, mass-less leaf bodies, but keep a placeholder frame')
     group.add_argument('--collapse-fixed', dest='collapsefixed', action='store_true', help='collapse the fixed joints by merging the bodies of the pair')
+    group.add_argument('--drop-user-frames', dest='dropuserframes', action='store_true', help='remove extra frames attached to the robot links')
 
 
 def getRobotOptsDict(parsed_arguments):
@@ -364,6 +367,7 @@ def getRobotOptsDict(parsed_arguments):
         'collapseFixedJoints': parsed_arguments.collapsefixed,
         'pruneDummies' : parsed_arguments.prunedummies,
         'dummiesAsFrames': parsed_arguments.dummiesasframes,
+        'dropUserFrames' : parsed_arguments.dropuserframes,
         'iformat' : parsed_arguments.iformat,
     }
 

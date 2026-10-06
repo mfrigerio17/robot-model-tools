@@ -337,3 +337,17 @@ def pruneDummyLinks(orderedConnectivity, inertiaModel, framesModel=None, geometr
         newGeometry = robmodel.geometry.Geometry(newOrdered, newFrames, posesContainer, jointAxes)
 
     return newConnectivity, newOrdered, newFrames, newGeometry
+
+
+def dropUserFrames(orderedConnectivityModel, framesModel, geometryModel):
+    newFrames = robmodel.frames.RobotDefaultFrames(orderedConnectivityModel, [])
+    srcPosesModel = geometryModel.posesModel
+    poses = [poseSpec for poseSpec in srcPosesModel.poses
+        if poseSpec.pose.reference.name in newFrames.byName and
+            poseSpec.pose.target.name in newFrames.byName]
+    posesContainer = motions.PosesSpec(name=srcPosesModel.name, poses=poses )
+
+    newGeometry = robmodel.geometry.Geometry(orderedConnectivityModel, newFrames,
+        posesContainer, geometryModel.axes)
+    return newFrames, newGeometry
+
