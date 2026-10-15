@@ -3,7 +3,6 @@ import rmt.rmt as core
 import rmt.load as loadutils
 
 import rmt_plugins.viser.plugin as thisplugin
-import rmt_plugins.viser.viser as thisviser
 from rmt_plugins.viser import logger
 
 def customize_cmdline_args(core_argparser, core_subparsers_group):
@@ -18,6 +17,10 @@ def customize_options(parsed_arguments, opts_dict):
 # --------------------------------------------------------------------------- #
 
 def launch(args, opts):
+    import rmt_plugins.viser.viser as thisviser
+    # Do not import it at the top of the module, so that Viser itself is loaded
+    # only when actually needed (here) and not when discovering this plugin.
+
     robotGeometryModel = core.getmodels(args.robot, **opts)[3]
 
     meshesPaths = {}
