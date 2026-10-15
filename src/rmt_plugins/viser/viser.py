@@ -51,6 +51,7 @@ class ViserScene:
         self.h_meshes  = {}
         self.h_jaxes   = {}
         self.h_jsliders= {}
+        self.h_explode_placeholders = {}
         self.q = {joint.name:0.0 for joint in self.robot.joints.values()}
         self.visual_attrs = {
             "axes_radius" : 0.005,
@@ -98,9 +99,10 @@ class ViserScene:
                 |- joint \
                          |- joint frame
                          |- joint axis
-                         |- link \
-                                 |- link frame
-                                 |- mesh
+                         |- dummy # to implement conveniently the "explode" trick
+                                  |- link \
+                                          |- link frame
+                                          |- mesh
         '''
         vattrs = self.visual_attrs
         scenePath = scenePathToParent
@@ -128,17 +130,22 @@ class ViserScene:
                 origin_color= vattrs["joint_color"],
                 visible=False)
 
-            # joint axis arrow
+            # joint-axis arrow, and the dummy object to implement the "explode" trick
             if joint.kind != JointKind.fixed:
-                tip = np.array(self.robotGeometry.jointAxes[joint.name]) * vattrs["jaxis_length"]
+                axis = np.array( self.robotGeometry.jointAxes[joint.name] )
                 self.h_jaxes[joint.name] = self.scene.add_arrows(
                     scenePath+"/axis",
-                    points= np.array([[[0,0,0],tip]]),
+                    points= np.array([[[0,0,0], axis*vattrs["jaxis_length"]]]),
                     colors= vattrs["jaxis_color"],
                     shaft_radius= vattrs["axes_radius"],
                     head_length= vattrs["jaxis_length"] *0.1,
                     head_radius= vattrs["axes_radius"]*1.5,
                     visible=False)
+                # a dummy to keep track of the "explode" offset from the GUI
+                scenePath = f'{scenePath}/explode_{joint.name}'
+                h = self.scene.add_icosphere(scenePath, radius=0.0, visible=True)
+                    # I dont want it to be visible, but it must be, not to hide what follows
+                self.h_explode_placeholders[joint.name] = (h, axis)
 
             tr = self.jointPoses.jointTransform(joint)
             tr = mxrepr.hCoordinatesSymbolic(tr)
@@ -229,9 +236,9 @@ class ViserScene:
                 self._setOpacity(self.h_meshes.values(), ev.target.value))
 
         with self.gui.add_folder(label="Explode"):
-            h = self.gui.add_slider(label="distance", min=0, max=1, initial_value=0, step=0.05)
+            h = self.gui.add_slider(label="distance", min=0, max=1, initial_value=0.0, step=0.02)
             h.on_update(func= lambda ev:
-                self._setExplodeDistance(self.h_links.values(), ev.target.value))
+                self._setExplodeDistance(self.h_explode_placeholders.values(), ev.target.value))
 
         with self.gui.add_folder(label="Joint state", expand_by_default=False):
             for jname in self.robot.joints:
@@ -247,19 +254,9 @@ class ViserScene:
     def _setOpacity(self, handles, opacity):
         for h in handles : h.opacity = opacity
 
-    def _setExplodeDistance(self, handles, dist):
-        for h in handles :
-            linkName = pathlib.Path(h.name).name # extracts the last part
-            link  = self.robot.links[linkName]
-            joint = self.treeutils.supportingJoint(link)
-            if joint:
-                axis = self.robotGeometry.jointAxes.get(joint.name)
-                if axis:
-                    tr = self.jointTransforms[joint.name]
-                    H = tr.eval( self.q[joint.name] ) if len(tr.variables) > 0 else tr.eval()
-                    pos = H[0:3,3]
-                    pos = pos + np.array(axis)*dist
-                    h.position = pos
+    def _setExplodeDistance(self, handle_axis_pairs, dist):
+        for h,axis in handle_axis_pairs :
+            h.position = axis * dist
 
     def _setJointState(self, joint, value):
         self.q[joint.name] = value
@@ -268,4 +265,5 @@ class ViserScene:
         h_link = self.h_links[ self.robot.successor(joint).name ]
         h_link.position = se3.translation()
         h_link.wxyz     = se3.rotation().wxyz
+
 
