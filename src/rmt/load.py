@@ -1,6 +1,7 @@
 import pathlib
 from robmodel.jlimits import JointLimits
 
+from rmt import logger
 
 def loadDictionary(filePath):
     '''
