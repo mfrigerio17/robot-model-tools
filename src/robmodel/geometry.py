@@ -69,6 +69,8 @@ class Geometry:
             raise RuntimeError("Robot name mismatch in the connectivity and frames model ('{0}' vs '{1})".format(rname, framesModel.robot.name))
 
         self.byPose = {}
+        self.byJoint = {}
+        self.byTgtFrame = {}
         for poseSpec in posesModel.poses :
             ignore = False
             pose = poseSpec.pose
@@ -97,18 +99,21 @@ class Geometry:
                     realpose = Pose(target=tgtF, reference=refF)
                     realposespec = motions.PoseSpec(pose=realpose, motion=poseSpec.motion)
                     self.byPose[ realpose ] = realposespec
+                    self.byTgtFrame[ tgtF ] = realposespec
                     #print( realpose )
                     #print( poseSpec.motion.steps, "\n\n")
 
         # We iterate over joints and fetch the predecessor, as the joint_wrt_predecessor
         # is a constant pose (also for loop joints).
         inspector = motions.ConnectedFramesInspector(motions.PosesSpec("temporary", list(self.byPose.values())))
-        self.byJoint = {}
         for joint in connectModel.joints.values() :
             predFrame = framesModel.linkFrames [ connectModel.predecessor(joint) ]
             jointFrame= framesModel.jointFrames[ joint ]
             pose = Pose(target=jointFrame, reference=predFrame)
-            if pose not in self.byPose :
+            if pose in self.byPose :
+                # the pose of the joint frame was given explicitly
+                self.byJoint[joint] = self.byPose[pose]
+            else:
                 logger.info("No explicit data for the pose of joint frame '%s' wrt link frame '%s'",
                     jointFrame.name, predFrame.name)
                 inferred = inspector.getPoseSpec(targetFrame=jointFrame, referenceFrame=predFrame)
@@ -117,12 +122,10 @@ class Geometry:
                     self.byPose[inferred.pose] = inferred
                     # Note that this will make a loop in the frames graph, because we are storing an
                     # explicit pose (i.e. an edge) between two frames that are connected already
-                    # (otherwise the inspector would have not found the pose)
+                    # (otherwise the temporary inspector would have not found the pose)
                 else:
                    logger.error("Could not determine the pose of joint frame '%s' wrt link frame '%s'",
                         jointFrame.name, predFrame.name)
-            else :
-                self.byJoint[joint] = self.byPose[pose]
 
         self.ordering = connectModel
         self.frames   = framesModel
