@@ -1,4 +1,4 @@
-import pathlib
+import pathlib, math
 import numpy as np
 import kgprim.ct.frommotions as frommotions
 import kgprim.ct.repr.mxrepr as mxrepr
@@ -201,8 +201,10 @@ class ViserScene:
         GUI controls
         '''
 
+        robot_root_handle_name = "/robot_root"
+
         # First add the elements of the 3D scene
-        self._addToScene(self.robot.base, None, "/")
+        self._addToScene(self.robot.base, None, robot_root_handle_name)
 
         # Then the GUI controls.
         # `event` (below) is a Viser GUI object. The `target` is the affected gui element
@@ -247,6 +249,27 @@ class ViserScene:
                     h = self.gui.add_slider(label=jname, min=-np.pi, max=np.pi, initial_value=self.q[jname], step=0.1)
                     h.on_update(func= lambda ev: self._setJointState( self.robot.joints[ev.target.label], ev.target.value ) )
                     self.h_jsliders[jname] = h
+
+        # Input text boxes to set the robot base position and orientation in the scene
+        # Both position and Euler angles are interpreted relative to the fixed world reference
+        # Position in [m], angles in [deg]
+        with self.gui.add_folder("Base", expand_by_default=False):
+            root_handle = self.scene.get_handle_by_name(robot_root_handle_name)
+            gui_pos = self.gui.add_vector3(
+                "Position X,Y,Z", initial_value=(0.0, 0.0, 0.0), step=0.1,
+            )
+            def set_root_pos(p): root_handle.position = p
+            gui_pos.on_update(lambda ev : set_root_pos(ev.target.value) )
+
+            gui_or = self.gui.add_vector3(
+                "rX, rY, rZ [deg] (extrinsic)", initial_value=(0.0, 0.0, 0.0), step=1,
+            )
+            def set_root_orientation(euler_rxryrz_intrinsic):
+                so3x = viser.transforms.SO3.from_x_radians(euler_rxryrz_intrinsic[0]/180.*math.pi)
+                so3y = viser.transforms.SO3.from_y_radians(euler_rxryrz_intrinsic[1]/180.*math.pi)
+                so3z = viser.transforms.SO3.from_z_radians(euler_rxryrz_intrinsic[2]/180.*math.pi)
+                root_handle.wxyz = so3z.multiply( so3y.multiply( so3x ) ).wxyz
+            gui_or.on_update(lambda ev : set_root_orientation(ev.target.value) )
 
     def _setVisibility(self, handles, visible):
         for h in handles : h.visible = visible
