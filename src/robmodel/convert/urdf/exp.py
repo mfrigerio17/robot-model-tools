@@ -19,8 +19,6 @@ logger = logging.getLogger(__name__)
 #   with its numerical attributes
 # - generate dummy link/joint pairs to represent possible additional user frames
 #   available in the input model
-# - generate dummy link/joint pairs to represent possible extra frames given to
-#   the generate function (see variable `extraPoses`)
 
 tpl = Template('''
 <robot name="${robot.name}">
@@ -49,38 +47,17 @@ tpl = Template('''
 %if includeDummies :
     <!-- Dummy links/joints to model extra frames -->
 %if geometry is not None :
-<% dummyLinks = set() %>
-%for _,aframe in geometry.framesModel.userFrames.items():
-    <link name="${aframe.entity.name}">
-    </link>
-<% x,y,z,rx,ry,rz = jointParams(geometryModel=geometry, attachedFrame=aframe);  dummyLinks.add(aframe.entity.name) %>
-    <joint name="dummy_${aframe.entity.name}" type="fixed">
-        <origin xyz="${tostr(x)} ${tostr(y)} ${tostr(z)}" rpy="${tostr(rx)} ${tostr(ry)} ${tostr(rz)}"/>
-        <parent link="${aframe.body.name}"/>
-        <child  link="${aframe.entity.name}"/>
-    </joint>
-
-%endfor
-%if extraPoses is not None :
-%for pose in extraPoses:
-<%  ref = pose.pose.reference.name; tgt=pose.pose.target.name %>
-%   if ref not in robot.links.values() and ref not in dummyLinks :
-    <link name="${ref}"></link>
-<%      dummyLinks.add(ref) %>
-%   endif
-%   if tgt not in robot.links.values() and tgt not in dummyLinks :
-    <link name="${tgt}"></link>
-<%      dummyLinks.add(tgt) %>
-    %endif
+%for fname,aframe in geometry.framesModel.userFrames.items():
+    <link name="${fname}"></link>
+<% pose = geometry.byTgtFrame[aframe] %>
 <% x,y,z,rx,ry,rz = jointParams(poseSpec=pose) %>
-    <joint name="dummy_between_${ref}_and_${tgt}" type="fixed">
+    <joint name="dummy_between_${fname}_and_${pose.pose.reference.name}" type="fixed">
         <origin xyz="${tostr(x)} ${tostr(y)} ${tostr(z)}" rpy="${tostr(rx)} ${tostr(ry)} ${tostr(rz)}"/>
-        <parent link="${ref}"/>
-        <child  link="${tgt}"/>
+        <parent link="${pose.pose.reference.name}"/>
+        <child  link="${fname}"/>
     </joint>
 
 %endfor
-%endif
 %endif
     <!-- end of section for extra dummy links/joints -->
 %endif
@@ -239,7 +216,7 @@ def ordering(orderingModel):
         tostr=lambda num: formatter.float2str(num)
     )
 
-def modelText(geometryModel, inertiaModel=None, userExtraPoses=None, jointLimits=None, includeDummies=True):
+def modelText(geometryModel, inertiaModel=None, jointLimits=None, includeDummies=True):
     if jointLimits is None:
         logger.warning("generated joint limits are arbitrary")
         limits = {joint : dataclasses.asdict(robmodel.jlimits.JointLimit())
@@ -266,7 +243,6 @@ def modelText(geometryModel, inertiaModel=None, userExtraPoses=None, jointLimits
         geometry=geometryModel,
         inertia=inertiaModel,
         jointLimits=jLimits,
-        extraPoses=userExtraPoses,
         jointParams=jointOrigin,
         jointKind = jointKind,
         includeDummies = includeDummies,
