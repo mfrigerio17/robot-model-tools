@@ -351,3 +351,36 @@ def dropUserFrames(orderedConnectivityModel, framesModel, geometryModel):
         posesContainer, geometryModel.axes)
     return newFrames, newGeometry
 
+
+def addExtraPoses(framesModel, geometryModel, extraPosesModel):
+    # start with the frames and poses which are already in the source models
+    userFrames = dict( framesModel.userFrames )
+    poseSpecs = [ p for p in geometryModel.posesModel.poses ]
+
+    for pose_spec in extraPosesModel.poses:
+        fname = pose_spec.pose.target.name
+        tgt = framesModel.byName.get(fname) or userFrames.get(fname)
+        fname = pose_spec.pose.reference.name
+        ref = framesModel.byName.get(fname) or userFrames.get(fname)
+        if (tgt is None) and (ref is None):
+            logger.error("Cannot add pose '%s', neither the target nor the reference are robot frames", pose_spec.pose)
+        else:
+            fr = None
+            if tgt is None:
+                tgt = primitives.Attachment( pose_spec.pose.target, body=ref.body )
+                userFrames[tgt.name] = tgt
+            elif ref is None:
+                ref = primitives.Attachment( pose_spec.pose.reference, body=tgt.body )
+                userFrames[ref.name] = ref
+            # rebuild the pose (even when it is not necessary, code is simpler)
+            pose = primitives.Pose(target=tgt, reference=ref)
+            poseSpecs.append( motions.PoseSpec(pose=pose, motion=pose_spec.motion) )
+
+    posesContainer = motions.PosesSpec(name=geometryModel.posesModel.name, poses=poseSpecs )
+
+    robot = geometryModel.connectivityModel
+    newFrames = robmodel.frames.RobotDefaultFrames(robot, userFrames.values())
+    newGeometry = robmodel.geometry.Geometry(robot, newFrames, posesContainer, geometryModel.axes)
+
+    return newFrames, newGeometry
+

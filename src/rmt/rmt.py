@@ -125,6 +125,11 @@ def getmodels(filepath, paramsFilePath=None, jlimsFilePath=None, floatLiteralsAs
                 connectivity, ordering, frames, geometry, inertia)
     if kwargs.get('dropUserFrames'):
         frames, geometry = postproc.dropUserFrames(ordering, frames, geometry)
+    if kwargs.get('extraPoses'):
+        import motiondsl.motiondsl as motdsl
+        model = motdsl.dsl.modelFromFile(kwargs.get('extraPoses'))
+        poseSpecModel = motdsl.toPosesSpecification(model)
+        frames, geometry = postproc.addExtraPoses(frames, geometry, poseSpecModel)
 
     return connectivity, ordering, frames, geometry, inertia, params, jlimits
 
@@ -309,14 +314,7 @@ def export(args, opts):
                 _resolve_parameters(g.posesModel.poses, params)
                 if i is not None:
                     _resolve_iparameters(i, params)
-                extraPoses = None
-                if args.extraposes is not None:
-                    import motiondsl.motiondsl as motdsl
-                    model = motdsl.dsl.modelFromFile(args.extraposes)
-                    poseSpecModel = motdsl.toPosesSpecification(model)
-                    _resolve_parameters(poseSpecModel.poses, params)
-                    extraPoses = poseSpecModel.poses
-                text = urdfout.modelText(g, i, jointLimits=jlimits, userExtraPoses=extraPoses)
+                text = urdfout.modelText(g, i, jointLimits=jlimits)
             elif o is None:
                 log.error("Cannot export a URDF if the input model does not even include ordering")
                 exit(-1)
@@ -352,6 +350,7 @@ def setRobotArgs(argparser):
     group.add_argument('--dummies-as-frames', dest='dummiesasframes', action='store_true', help='prune fixed, mass-less leaf bodies, but keep a placeholder frame')
     group.add_argument('--collapse-fixed', dest='collapsefixed', action='store_true', help='collapse the fixed joints by merging the bodies of the pair')
     group.add_argument('--drop-user-frames', dest='dropuserframes', action='store_true', help='remove extra frames attached to the robot links')
+    group.add_argument('--extra-poses',  dest='extraposes', metavar='FILE', help='attach additional frames to the input model, according to the poses described in the MotionDSL document FILE')
 
 
 def getRobotOptsDict(parsed_arguments):
@@ -365,6 +364,7 @@ def getRobotOptsDict(parsed_arguments):
         'dummiesAsFrames': parsed_arguments.dummiesasframes,
         'dropUserFrames' : parsed_arguments.dropuserframes,
         'iformat' : parsed_arguments.iformat,
+        'extraPoses' : parsed_arguments.extraposes,
     }
 
 
@@ -418,7 +418,6 @@ def main():
 
     parser = subparsers.add_parser('exp', parents=[commonArgsParser], help='Export the input model to a different format (experimental - work in progress)')
     parser.add_argument('-f', '--format',   dest='oformat', metavar='FMT', help='desired output format: {yaml,kindsl,urdf} (default: yaml)')
-    parser.add_argument('-e', '--extra-poses',  dest='extraposes', metavar='FILE', help='add extra dummy joints/links to the exported URDF, for each pose in the given MotionDSL document')
     parser.set_defaults(func=export)
 
     parser = subparsers.add_parser('debug', parents=[commonArgsParser])
