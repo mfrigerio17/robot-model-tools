@@ -258,7 +258,7 @@ def pruneDummyLinks(orderedConnectivity, inertiaModel, framesModel=None, geometr
     for joint in orderedConnectivity.joints.values():
         if joint.kind == JointKind.fixed:  # condition 1
             successor = orderedConnectivity.successor(joint)
-            massless = (successor not in inertialData) or (inertialData[successor].mass==0.0)
+            massless = (successor.name not in inertialData) or (inertialData[successor.name].mass==0.0)
             if massless:  # condition 2
                 if treeUtils.isLeaf(successor):  # condition 3
                     toBePruned[joint] = successor
