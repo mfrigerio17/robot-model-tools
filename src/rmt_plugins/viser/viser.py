@@ -231,13 +231,18 @@ class ViserScene:
             addTabWithFramesCtrls("Joint axes", [n for n,j in self.robot.joints.items() if j.kind!=JointKind.fixed], self.h_jaxes)
             addTabWithFramesCtrls("Others", self.robotGeometry.framesModel.userFrames, self. h_uframes)
 
-
-        with self.gui.add_folder(label="Meshes"):
+        # Meshes controls. A slider for the opacity, and buttons to show/hide
+        with self.gui.add_folder(label="Meshes", expand_by_default=False):
             h = self.gui.add_slider(label="opacity", min=0.0, max=1.0, initial_value=1.0, step=0.1)
             h.on_update(func= lambda ev:
                 self._setOpacity(self.h_meshes.values(), ev.target.value))
+            h = self.gui.add_button_group("Show/hide", [name for name in self.h_meshes.keys()])
+            def on_click(ev):
+                handle = self.h_meshes[ev.target.value]
+                handle.visible = not handle.visible
+            h.on_click(on_click)
 
-        with self.gui.add_folder(label="Explode"):
+        with self.gui.add_folder(label="Explode", expand_by_default=False):
             h = self.gui.add_slider(label="distance", min=0, max=1, initial_value=0.0, step=0.02)
             h.on_update(func= lambda ev:
                 self._setExplodeDistance(self.h_explode_placeholders.values(), ev.target.value))
