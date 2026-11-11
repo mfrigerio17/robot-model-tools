@@ -210,22 +210,22 @@ class ViserScene:
         # `event` (below) is a Viser GUI object. The `target` is the affected gui element
 
         with self.gui.add_folder(label="Frames & Co.", expand_by_default=False):
-            opts = ["show","hide"]
             group = self.gui.add_tab_group()
+
             def addTabWithFramesCtrls(label, rob_items, frames_h):
                 with group.add_tab(label):
-                    h_buttons = self.gui.add_button_group(label="All:", options=opts)
-                    checkboxes = []
-                    def _showFrame(event) : # handler for a single checkbox
-                        frames_h[event.target.label].visible = event.target.value
-                    for name in rob_items:
-                        h = self.gui.add_checkbox(label=name, initial_value=frames_h[name].visible)
-                        h.on_update(_showFrame)
-                        checkboxes.append(h)
-                    def _setAll(event): # handler for the buttons
-                        for box in checkboxes : box.value = (event.target.value==opts[0])
-                        # note that in Viser setting a checkbox triggers in turn its side effect
+                    h_buttons = self.gui.add_button_group("All:", ["show","hide"])
+                    def _setAll(event):
+                        for h in frames_h.values() : h.visible = (event.target.value=="show")
                     h_buttons.on_click(_setAll)
+
+                    h_buttons = self.gui.add_button_group("Show/hide",
+                                      options=[name for name in rob_items])
+                    def _on_click(ev):
+                        handle = frames_h[ev.target.value] # ev.target.value is the label of the button
+                        handle.visible = not handle.visible
+                    h_buttons.on_click(_on_click)
+
             addTabWithFramesCtrls("Link frames" , self.robot.links,  self.h_lframes)
             addTabWithFramesCtrls("Joint frames", self.robot.joints, self.h_jframes)
             addTabWithFramesCtrls("Joint axes", [n for n,j in self.robot.joints.items() if j.kind!=JointKind.fixed], self.h_jaxes)
